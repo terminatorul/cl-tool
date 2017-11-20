@@ -204,7 +204,7 @@ try
 }
 catch(cl::Error const &err)
 {
-    cerr << "OpenCL function error " << error_string(err.err()) << " in call to " << err.what() << "()" << endl;
+    cerr << "OpenCL error " << error_string(err.err()) << " in call to function " << err.what() << "()" << endl;
     return EXIT_FAILURE;
 }
 catch(std::exception const &ex)

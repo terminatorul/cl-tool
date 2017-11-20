@@ -360,6 +360,37 @@ static std::string list_float_support(cl_device_fp_config fp_config)
     return str.str();
 }
 
+std::string memory_size_str(size_t memoryCapacity, bool showKiBytes = true)
+{
+    std::ostringstream memoryString;
+
+    size_t kbytes = memoryCapacity/ 1024;
+    size_t mbytes = kbytes / 1024;
+    size_t gbytes = mbytes / 1024;
+
+    kbytes %= 1024;
+    mbytes %= 1024;
+
+    if (gbytes)
+	memoryString << gbytes << " GiBytes ";
+
+    if (mbytes)
+	memoryString << (mbytes % 1024) << " MiBytes ";
+
+    if (showKiBytes && kbytes)
+	memoryString << (kbytes % 1024) << " KiBytes ";
+
+    std::string result = memoryString.str();
+
+    while (!result.empty() && result.back() == ' ')
+	result.pop_back();
+
+    if (result.empty())
+	return "0 bytes";
+
+    return result;
+}
+
 extern void show_cl_device(cl::Device &device, bool showPlatform)
 {
     cout << "\tPlatfrom:               " << cl::Platform(device.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>() << endl;
@@ -378,20 +409,28 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
     // cout << "\tSPIR version:           " << device.getInfo<CL_DEVICE_SPIR_VERSIONS>() << endl;
     cout << "\tProfile:                " << device.getInfo<CL_DEVICE_PROFILE>() << endl;
     cout << "\tMax clock speed:        " << device.getInfo<CL_DEVICE_MAX_CLOCK_FREQUENCY>() << " MHz" << endl;
-    cout << "\tMemory:                 " << device.getInfo<CL_DEVICE_GLOBAL_MEM_SIZE>() / 1024 / 1024 << " MBytes, " << device.getInfo<CL_DEVICE_ADDRESS_BITS>() << "-bit " 
-					<< (device.getInfo<CL_DEVICE_HOST_UNIFIED_MEMORY>() ? "host memory (" : "device memory (")
-					<< device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_SIZE>() / 1024 << " KBytes cache, " << device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE>() * 8 << "-bit)" << endl;
+    cout << "\tMemory:                 " << memory_size_str(device.getInfo<CL_DEVICE_GLOBAL_MEM_SIZE>(), false) << ", " << device.getInfo<CL_DEVICE_ADDRESS_BITS>() << "-bit " 
+#if (CL_HPP_TARGET_OPENCL_VERSION >= 120)
+                                        << (device.getInfo<CL_DEVICE_HOST_UNIFIED_MEMORY>() ? "host memory (" : "device memory (")
+#else
+                                        << "("
+#endif
+					<< memory_size_str(device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_SIZE>()) << " cache, " << device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE>() * 8 << "-bit)" << endl;
     cout << "\tByte order:             " << (device.getInfo<CL_DEVICE_ENDIAN_LITTLE>() ? "Little endian" : "Big endian or other") << endl;
     cout << "\tCompute units:          " << device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() << endl;
-    cout << "\tCompute units memory:   " << device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() / 1024 << " KBytes " << (device.getInfo<CL_DEVICE_LOCAL_MEM_TYPE>() == CL_LOCAL ? "local memory" : "global memory") << endl;
+    cout << "\tCompute units memory:   " << memory_size_str(device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>()) << ' ' << (device.getInfo<CL_DEVICE_LOCAL_MEM_TYPE>() == CL_LOCAL ? "local memory" : "global memory") << endl;
     cout << "\tWork group size:        " << device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>() << endl;
     cout << "\tWork item sizes:        " << list_product(device.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>()) << endl;
+#if (CL_HPP_TARGET_OPENCL_VERSION >= 120)
     cout << "\tPartition properties:   " << list_partitions(device.getInfo<CL_DEVICE_PARTITION_PROPERTIES>()) << endl;
     cout << "\t  affinity domains:     " << list_domains(device.getInfo<CL_DEVICE_PARTITION_AFFINITY_DOMAIN>()) << endl;
+#endif
     // cout << "\tMax sub-devices:        " << device.getInfo<CL_DEVICE_PARTITION_MAX_SUB_DEVICES>() << endl;
     cout << "\tExecution queue flags:  " << list_queue_props(device.getInfo<CL_DEVICE_QUEUE_PROPERTIES>()) << endl;
     cout << "\tExecution capabilities: " << list_capabilities(device.getInfo<CL_DEVICE_EXECUTION_CAPABILITIES>()) << endl;
+#if (CL_HPP_TARGET_OPENCL_VERSION >= 120)
     cout << "\tBuilt-in kernels:       " << device.getInfo<CL_DEVICE_BUILT_IN_KERNELS>() << endl;
+#endif
     cout << "\tNative vector size:     " << "(char: " << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR>() << ", short: " << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT>()
 					 << ", int: " << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_INT>() << ", long: " << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG>()
 					 << ", half: " << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF>() << ", float: " << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT>()
@@ -400,7 +439,8 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
 					 << ", int: " << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT>() << ", long: " << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG>()
 					 << ", half: " << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF>() << ", float: " << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT>()
 					 << ", double: " << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE>() << ")" << endl;
-    cout << "\tHalf float config:      " << list_float_support(device.getInfo<CL_DEVICE_HALF_FP_CONFIG>()) << endl;
+    cout << "\tHalf float config:      " << (device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF>() && device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF>() ?
+						list_float_support(device.getInfo<CL_DEVICE_HALF_FP_CONFIG>()) : "-") << endl;
     cout << "\tSingle float config:    " << list_float_support(device.getInfo<CL_DEVICE_SINGLE_FP_CONFIG>()) << endl;
     cout << "\tDouble float config:    " << list_float_support(device.getInfo<CL_DEVICE_DOUBLE_FP_CONFIG>()) << endl;
     cout << "\tImage support:          " << (device.getInfo<CL_DEVICE_IMAGE_SUPPORT>() ? "Yes" : "No") << endl;
@@ -408,7 +448,7 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
     cout << "\t2D image size:          " << device.getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>() << 'x' << device.getInfo<CL_DEVICE_IMAGE2D_MAX_HEIGHT>() << endl;
     cout << "\t3D image size:          " << device.getInfo<CL_DEVICE_IMAGE3D_MAX_WIDTH>() << 'x' << device.getInfo<CL_DEVICE_IMAGE3D_MAX_HEIGHT>() << 'x' << device.getInfo<CL_DEVICE_IMAGE3D_MAX_DEPTH>() << endl;
     // cout << "\timage array size:       " << device.getInfo<CL_DEVICE_IMAGE_MAX_ARRAY_SIZE>() << endl;
-    cout << "\tExtensions:             " << device.getInfo<CL_DEVICE_EXTENSIONS>() << endl;
+    cout << "\tExtensions:             " << std::regex_replace(device.getInfo<CL_DEVICE_EXTENSIONS>(), std::regex("[[:space:]]+"), "\n\t\t\t\t") << endl;
     cout << endl;
 }
 

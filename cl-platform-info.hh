@@ -3,7 +3,7 @@
 #if defined(__APPLE__) || defined(__MACOSX__)
 # include <OpenCL/cl2.hpp>
 #else
-# include <CL/cl.hpp>
+# include <CL/cl2.hpp>
 #endif
 
 extern char const *error_string(cl_int err);
