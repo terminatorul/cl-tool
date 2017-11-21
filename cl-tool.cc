@@ -155,7 +155,7 @@ try
 	list_default_cl_devices();
 
     cl_platform_id platform;
-    std::vector<cl_context_properties> context_props;
+    std::array<cl_context_properties, 3> context_props = { 0, 0, 0 };
 
     if (!args.select_platform_name.empty())
     {
@@ -174,13 +174,12 @@ try
 	if (!platform_found)
 	    throw std::runtime_error("No such platform: " + args.select_platform_name);
 
-	context_props.resize(3);
 	context_props[0] = CL_CONTEXT_PLATFORM;
 	context_props[1] = static_cast<cl_context_properties>(reinterpret_cast<intptr_t>(platform));
 	context_props[2] = static_cast<cl_context_properties>(0);
     }
 
-    cl::Context context(CL_DEVICE_TYPE_ALL, context_props.data(), context_error_notification);
+    cl::Context context(CL_DEVICE_TYPE_ALL, context_props[0] ? context_props.data() : nullptr, context_error_notification);
 
     if (args.list_all_devices)
 	list_context_devices(context);

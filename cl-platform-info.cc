@@ -175,7 +175,7 @@ static std::string list_product(std::vector<std::size_t> const &sizes)
     str << *it++;
 
     while (it != sizes.cend())
-	str << 'x' << *it++;
+	str << " x " << *it++;
 
     return str.str();
 }
@@ -467,8 +467,8 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
     cout << "\tDouble float config:    " << list_float_support(device.getInfo<CL_DEVICE_DOUBLE_FP_CONFIG>()) << endl;
     cout << "\tImage support:          " << (device.getInfo<CL_DEVICE_IMAGE_SUPPORT>() ? "Yes" : "No") << endl;
     // cout << "\t1D image size:          " << device.getInfo<CL_DEVICE_IMAGE_MAX_BUFFER_SIZE>() << endl;
-    cout << "\t2D image size:          " << device.getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>() << 'x' << device.getInfo<CL_DEVICE_IMAGE2D_MAX_HEIGHT>() << endl;
-    cout << "\t3D image size:          " << device.getInfo<CL_DEVICE_IMAGE3D_MAX_WIDTH>() << 'x' << device.getInfo<CL_DEVICE_IMAGE3D_MAX_HEIGHT>() << 'x' << device.getInfo<CL_DEVICE_IMAGE3D_MAX_DEPTH>() << endl;
+    cout << "\t2D image size:          " << device.getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>() << " x " << device.getInfo<CL_DEVICE_IMAGE2D_MAX_HEIGHT>() << endl;
+    cout << "\t3D image size:          " << device.getInfo<CL_DEVICE_IMAGE3D_MAX_WIDTH>() << " x " << device.getInfo<CL_DEVICE_IMAGE3D_MAX_HEIGHT>() << " x " << device.getInfo<CL_DEVICE_IMAGE3D_MAX_DEPTH>() << endl;
     // cout << "\timage array size:       " << device.getInfo<CL_DEVICE_IMAGE_MAX_ARRAY_SIZE>() << endl;
     cout << "\tMax samplers count:     " << device.getInfo<CL_DEVICE_MAX_SAMPLERS>() << endl;
     cout << "\tExtensions:             " << std::regex_replace(device.getInfo<CL_DEVICE_EXTENSIONS>(), std::regex("[[:space:]]+"), "\n\t\t\t\t") << endl;
