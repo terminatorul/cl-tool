@@ -63,7 +63,7 @@ set(CL_INFO_SOURCES cl-matrix-mult.hh cl-matrix-mult.cc cl-platform-info.hh cl-p
 add_executable(cl-tool ${CL_INFO_SOURCES})
 target_compile_features(cl-tool PUBLIC cxx_std_14)
 target_compile_definitions(cl-tool PUBLIC CL_HPP_TARGET_OPENCL_VERSION=110 CL_HPP_MINIMUM_OPENCL_VERSION=110 CL_HPP_CL_1_2_DEFAULT_BUILD CL_HPP_ENABLE_EXCEPTIONS)
-target_compile_definitions(cl-tool PUBLIC __CL_ENABLE_EXCEPTIONS CL_VERSION_1_2)
+target_compile_definitions(cl-tool PUBLIC __CL_ENABLE_EXCEPTIONS CL_VERSION_1_1)
 target_include_directories(cl-tool PUBLIC ${OPENCL_INCLUDE_DIRS} ${OPENCL2_HPP_INCLUDE_DIRS})
 target_compile_options(cl-tool PRIVATE -Wno-ignored-attributes)
 target_link_libraries(cl-tool ${OPENCL_LIBRARIES} Threads::Threads)

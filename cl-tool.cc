@@ -180,10 +180,7 @@ try
 	context_props[2] = static_cast<cl_context_properties>(0);
     }
 
-    cl_int context_error_code = 0;
-    cl::Context context(CL_DEVICE_TYPE_ALL, context_props.data(), context_error_notification, nullptr, &context_error_code);
-
-    std::clog << "Context creation: " << error_string(context_error_code) << endl;
+    cl::Context context(CL_DEVICE_TYPE_ALL, context_props.data(), context_error_notification);
 
     if (args.list_all_devices)
 	list_context_devices(context);

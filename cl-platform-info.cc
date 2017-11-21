@@ -360,7 +360,7 @@ static std::string list_float_support(cl_device_fp_config fp_config)
     return str.str();
 }
 
-std::string memory_size_str(size_t memoryCapacity, bool showKiBytes = true)
+static std::string memory_size_str(size_t memoryCapacity, bool showKiBytes = true)
 {
     std::ostringstream memoryString;
 
@@ -391,6 +391,21 @@ std::string memory_size_str(size_t memoryCapacity, bool showKiBytes = true)
     return result;
 }
 
+static char const *memoryCacheType(cl_device_mem_cache_type memCacheType)
+{
+    switch(memCacheType)
+    {
+    case CL_NONE:
+	return "";
+    case CL_READ_ONLY_CACHE:
+	return "ReadOnly";
+    case CL_READ_WRITE_CACHE:
+	return "ReadWrite";
+    default:
+	return "";
+    }
+}
+
 extern void show_cl_device(cl::Device &device, bool showPlatform)
 {
     cout << "\tPlatfrom:               " << cl::Platform(device.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>() << endl;
@@ -415,7 +430,8 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
 #else
                                         << "("
 #endif
-					<< memory_size_str(device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_SIZE>()) << " cache, " << device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE>() * 8 << "-bit)" << endl;
+					<< memory_size_str(device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_SIZE>()) << memoryCacheType(device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_TYPE>()) << " cache, "
+					<< device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE>() * 8 << "-bit)" << endl;
     cout << "\tByte order:             " << (device.getInfo<CL_DEVICE_ENDIAN_LITTLE>() ? "Little endian" : "Big endian or other") << endl;
     cout << "\tCompute units:          " << device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() << endl;
     cout << "\tCompute units memory:   " << memory_size_str(device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>()) << ' ' << (device.getInfo<CL_DEVICE_LOCAL_MEM_TYPE>() == CL_LOCAL ? "local memory" : "global memory") << endl;
@@ -448,6 +464,7 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
     cout << "\t2D image size:          " << device.getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>() << 'x' << device.getInfo<CL_DEVICE_IMAGE2D_MAX_HEIGHT>() << endl;
     cout << "\t3D image size:          " << device.getInfo<CL_DEVICE_IMAGE3D_MAX_WIDTH>() << 'x' << device.getInfo<CL_DEVICE_IMAGE3D_MAX_HEIGHT>() << 'x' << device.getInfo<CL_DEVICE_IMAGE3D_MAX_DEPTH>() << endl;
     // cout << "\timage array size:       " << device.getInfo<CL_DEVICE_IMAGE_MAX_ARRAY_SIZE>() << endl;
+    cout << "\tMax samplers count:     " << device.getInfo<CL_DEVICE_MAX_SAMPLERS>() << endl;
     cout << "\tExtensions:             " << std::regex_replace(device.getInfo<CL_DEVICE_EXTENSIONS>(), std::regex("[[:space:]]+"), "\n\t\t\t\t") << endl;
     cout << endl;
 }
