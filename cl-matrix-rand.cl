@@ -30,7 +30,7 @@ __kernel void random_fill_double_block(__global double *matrix, ulong lines, ulo
     double
 		absMaxVal = copysign((float)maxVal, 1);
     unsigned
-		shift_register = (startLine ? startLine : (unsigned)absMaxVal + 2) * (startCol ? startCol : (unsigned)absMaxVal + 2) + (startLine > startCol ? 8 : 3),;
+		shift_register = (startLine ? startLine : (unsigned)absMaxVal + 2) * (startCol ? startCol : (unsigned)absMaxVal + 2) + (startLine > startCol ? 8 : 3),
 		bit = 1;
 
     shift_register *= (startLine ? startLine : (unsigned)(maxVal - minVal) / 2) * (startCol ? startCol : (unsigned)(maxVal - minVal) / 2) + abs_diff(startCol, startLine) / 3;
@@ -47,4 +47,4 @@ __kernel void random_fill_double_block(__global double *matrix, ulong lines, ulo
 
 #endif
 
-// vi:ft=opencl
+/* vi:ft=opencl */

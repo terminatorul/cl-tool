@@ -62,7 +62,7 @@ static char const program_file_name[] = "./cl-matrix-rand.cl";
 static cl::Program &build_program(cl::Program &program)
 try
 {
-    program.build();
+    program.build("-cl-std=CL1.1");
 
     return program;
 }

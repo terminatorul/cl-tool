@@ -209,6 +209,9 @@ static std::string list_partitions(std::vector<cl_device_partition_property> con
 	    str << ", " << property_name(*it++);
     }
 
+    if (str.str().empty())
+	return "-";
+
     return str.str();
 }
 
@@ -237,7 +240,7 @@ static std::string list_domains(cl_device_affinity_domain domains_mask)
 {
     std::ostringstream str;
 
-    for (auto &domain: std::vector<cl_device_affinity_domain> { CL_DEVICE_AFFINITY_DOMAIN_NUMA,  CL_DEVICE_AFFINITY_DOMAIN_L4_CACHE, CL_DEVICE_AFFINITY_DOMAIN_L3_CACHE, CL_DEVICE_AFFINITY_DOMAIN_L2_CACHE,
+    for (auto const &domain: std::array<cl_device_affinity_domain, 6> { CL_DEVICE_AFFINITY_DOMAIN_NUMA,  CL_DEVICE_AFFINITY_DOMAIN_L4_CACHE, CL_DEVICE_AFFINITY_DOMAIN_L3_CACHE, CL_DEVICE_AFFINITY_DOMAIN_L2_CACHE,
 								CL_DEVICE_AFFINITY_DOMAIN_L1_CACHE, CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE } )
     {
 	if (domains_mask & domain)
@@ -248,6 +251,9 @@ static std::string list_domains(cl_device_affinity_domain domains_mask)
 	    str << affinity_domain(domain);
 	}
     };
+
+    if (str.str().empty())
+	return "-";
 
     return str.str();
 }
@@ -430,7 +436,7 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
 #else
                                         << "("
 #endif
-					<< memory_size_str(device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_SIZE>()) << memoryCacheType(device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_TYPE>()) << " cache, "
+					<< memory_size_str(device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_SIZE>()) << ' ' << memoryCacheType(device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_TYPE>()) << " cache, "
 					<< device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE>() * 8 << "-bit)" << endl;
     cout << "\tByte order:             " << (device.getInfo<CL_DEVICE_ENDIAN_LITTLE>() ? "Little endian" : "Big endian or other") << endl;
     cout << "\tCompute units:          " << device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() << endl;
@@ -445,7 +451,7 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
     cout << "\tExecution queue flags:  " << list_queue_props(device.getInfo<CL_DEVICE_QUEUE_PROPERTIES>()) << endl;
     cout << "\tExecution capabilities: " << list_capabilities(device.getInfo<CL_DEVICE_EXECUTION_CAPABILITIES>()) << endl;
 #if (CL_HPP_TARGET_OPENCL_VERSION >= 120)
-    cout << "\tBuilt-in kernels:       " << device.getInfo<CL_DEVICE_BUILT_IN_KERNELS>() << endl;
+    cout << "\tBuilt-in kernels:       " << std::regex_replace(device.getInfo<CL_DEVICE_BUILT_IN_KERNELS>(), std::regex(";"), "\n\t\t\t\t") << endl;
 #endif
     cout << "\tNative vector size:     " << "(char: " << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR>() << ", short: " << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT>()
 					 << ", int: " << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_INT>() << ", long: " << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG>()
