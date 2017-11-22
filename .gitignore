@@ -50,3 +50,5 @@ nbproject
 *.bak
 *.un~
 .*
+tags
+cscope.out

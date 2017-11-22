@@ -1,6 +1,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <stdexcept>
 #include <vector>
 #include <string>
@@ -29,7 +30,9 @@ struct args
     bool list_platform_devices = false;
     bool list_default_devices = false;
     bool list_all_devices = false;
+    bool probe = false;
 
+    std::string probe_device;
     std::string select_platform_name;
     std::vector<std::string> select_devices;
 };
@@ -82,6 +85,13 @@ void parse_args(char const *argv[], struct args &args)
 	    throw std::runtime_error("Command line missing platform name");
 	}
 
+	if (!strncmp("--probe", arg, sizeof "--probe"))
+	{
+	    args.probe = true;
+	    argv++;
+	    continue;
+	}
+
 	if (!strncmp("--device", arg, sizeof "--device"))
 	{
 	    argv++;
@@ -98,6 +108,9 @@ void parse_args(char const *argv[], struct args &args)
 
 	throw std::runtime_error("Unknown command line option");
     }
+
+    if (!(args.list_platforms || args.list_platform_devices || args.list_default_devices || args.list_all_devices || args.probe))
+	args.probe = true;
 }
 
 void list_context_devices(cl::Context &context)
@@ -122,33 +135,36 @@ try
 
     if (args.list_platforms)
     {
-	cl::Platform defaultPlatform;
-	
-	try
-	{
-	    defaultPlatform = cl::Platform::getDefault();
-	}
-	catch(cl::Error const &err)
-	{
-	    cerr << "Select default platform failed with " << error_string(err.err()) << " in call to " << err.what() << endl;
-	}
-	catch(std::exception const &ex)
-	{
-	    cerr << "Select default platform failed: " << ex.what() << endl;
-	}
-	catch(...)
-	{
-	    cerr << "Select default platform failed." << endl;
-	}
-
 	std::vector<cl::Platform> clPlatforms;
 
 	cl::Platform::get(&clPlatforms);
 
-	for (auto &platform: clPlatforms)
-	    show_cl_platform(platform, args.list_platform_devices, defaultPlatform);
+	if (!clPlatforms.empty())
+	{
+	    cl::Platform defaultPlatform;
+	    
+	    try
+	    {
+		defaultPlatform = cl::Platform::getDefault();
+	    }
+	    catch(cl::Error const &err)
+	    {
+		cerr << "Select default platform failed with " << error_string(err.err()) << " in call to " << err.what() << endl;
+	    }
+	    catch(std::exception const &ex)
+	    {
+		cerr << "Select default platform failed: " << ex.what() << endl;
+	    }
+	    catch(...)
+	    {
+		cerr << "Select default platform failed." << endl;
+	    }
 
-	std::cout << "OpenCL platforms: " << clPlatforms.size() << std::endl;
+	    for (auto &platform: clPlatforms)
+		show_cl_platform(platform, args.list_platform_devices, defaultPlatform);
+	}
+
+	cout << "OpenCL platforms: " << clPlatforms.size() << endl;
     }
 
     if (args.list_default_devices)
@@ -184,17 +200,51 @@ try
     if (args.list_all_devices)
 	list_context_devices(context);
 
-    cl_ulong const lines = 1000, cols=1000, internal_size= 1000;
-    cl::Buffer
-	m(context, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, sizeof(cl_double) * lines * internal_size),
-	n(context, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, sizeof(cl_double) * internal_size * cols),
-	result(context, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, sizeof(cl_double)* lines * cols);
+    if (args.probe)
+    {
+	cout << "Probing devices: \n";
+	
+	for (auto const &device: context.getInfo<CL_CONTEXT_DEVICES>())
+	    cout << '\t' << device.getInfo<CL_DEVICE_NAME>() << endl;
 
-    Matrix mat(context);
-    mat.random_fill<cl_float>(m, lines, internal_size, -100.0f, 100.0f);
-    mat.random_fill<cl_float>(n, internal_size, cols, -100.0f, 100.0f);
-    // matrix_multiply<cl_float, lines, internal_size, cols>(m, n, result);
-    // show_sub_buffer<cl_float, lines, cols>(result, 25, 10);
+	cout << endl;
+
+	cl_ulong const lines = 1000, cols = 1000, internal_size = 10000;
+
+	cl::Buffer
+	    m(context, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY /* CL_MEM_HOST_NO_ACCESS */, sizeof(cl_double) * lines * internal_size),
+	    n(context, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY /* CL_MEM_HOST_NO_ACCESS */, sizeof(cl_double) * internal_size * cols),
+	    result(context, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, sizeof(cl_double)* lines * cols);
+
+	Matrix mat(context);
+	std::vector<cl_float> sub_buffer;
+
+	mat.random_fill<cl_float>(m, lines, internal_size, -100.0f, 100.0f);
+	mat.random_fill<cl_float>(n, internal_size, cols, -100.0f, 100.0f);
+	mat.zero_fill<cl_float>(result, lines, cols);
+	mat.waitForCompletion();
+
+
+	std::time_t startTime, endTime;
+	time(&startTime);
+	mat.multiply<cl_float>(m, lines, internal_size, n, internal_size, cols, result, lines, cols);
+	mat.waitForCompletion();
+	time(&endTime);
+
+	cout << (static_cast<double>(lines) * internal_size * cols * 2 / 1000/1000/1000) / static_cast<double>(endTime - startTime) << " GFLOPS" << endl;
+
+	mat.readBufferRectAsync(result, lines, cols, 852, 718, 20, 20, sub_buffer);
+	
+
+	cout << "Sample sub-matrix:\n";
+	for (unsigned i = 0; i < 10; i++)
+	{
+	    for (unsigned j = 0; j < 10; j++)
+		cout << std::setw(12) << std::fixed << std::setprecision(5) << std::setfill(' ') << std::setiosflags(cout.right) << std::showpos << sub_buffer[i * 10 + j] << ' ';
+
+	    cout << endl;
+	}
+    }
 	
     return EXIT_SUCCESS;
 }
