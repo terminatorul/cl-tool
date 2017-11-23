@@ -541,9 +541,9 @@ extern void show_cl_platform(cl::Platform &platform, bool list_devices, cl::Plat
 extern void list_default_cl_devices()
 {
     cl_uint device_count = 0;
-    clGetDeviceIDs(NULL, CL_DEVICE_TYPE_ALL, 0, NULL, &device_count);
+    ::clGetDeviceIDs(nullptr, CL_DEVICE_TYPE_ALL, 0, nullptr, &device_count);
     std::vector<cl_device_id> devices(device_count);
-    cl_int result = clGetDeviceIDs(NULL, CL_DEVICE_TYPE_ALL, devices.size(), devices.data(), &device_count);
+    cl_int result = ::clGetDeviceIDs(nullptr, CL_DEVICE_TYPE_ALL, devices.size(), devices.data(), &device_count);
 
     switch (result)
     {

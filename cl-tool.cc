@@ -37,11 +37,78 @@ struct args
     std::vector<std::string> select_devices;
 };
 
+class SyntaxError: public std::runtime_error
+{
+    public:
+	SyntaxError();
+	SyntaxError(char const *msg);
+	SyntaxError(std::string const &msg);
+
+	static void ShowSyntax(char const *cmd_name);
+};
+
+inline SyntaxError::SyntaxError()
+    : runtime_error("")
+{
+}
+
+inline SyntaxError::SyntaxError(char const *msg)
+    : runtime_error(msg)
+{
+}
+
+inline SyntaxError::SyntaxError(std::string const &msg)
+    : runtime_error(msg)
+{
+}
+
+void SyntaxError::ShowSyntax(char const *cmd_name)
+{
+    cerr << "Syntax:" << endl;
+    cerr << "\t" << cmd_name << " [--probe]" << endl;
+    cerr << "\t" << cmd_name << " --default-devices" << endl;
+    cerr << "\t" << cmd_name << " --platforms [--devices]" << endl;
+    cerr << "\t" << cmd_name << " --platform \"OpencCL Platform Name\" [--devices]" << endl;
+    cerr << "\t" << cmd_name << " --platform \"OpencCL Platform Name\" --device \"OpenCL DeviceName\" [--probe]" << endl;
+    cerr << "\t" << cmd_name << " [--platform \"OpenCL Platform Name\"] --all-devices" << endl;
+    cerr << endl;
+    cerr << cmd_name << " will by default attempt to probe the default OpenCL device(s) using" << endl;
+    cerr << "some trivial matrix multiplication and report the number of floating-point" << endl;
+    cerr << "operations per second in GFLOPS." << endl;
+    cerr << endl;
+    cerr << "Options:" << endl;
+    cerr << "\t--default-devices" << endl;
+    cerr << "\t     Show details on some default OpenCL compute device(s) reported by the system." << endl;
+    cerr << "\t     Note: some systems do not properly report a default OpenCL device." << endl;
+    cerr << endl;
+    cerr << "\t--platforms [--devices]" << endl;
+    cerr << "\t     List available OpenCL platforms on the system." << endl;
+    cerr << "\t     With --devices also report details on available OpenCL devices in each platform." << endl;
+    cerr << endl;
+    cerr << "\t--platform \"OpenCL Platform Name\" [--devices]" << endl;
+    cerr << "\t     List selected OpenCL platform." << endl;
+    cerr << "\t     With --devices   report details on available OpenCL devices in selected platform." << endl;
+    cerr << endl;
+    cerr << "\t--platform \"OpenCL Platform Name\" --device \"OpenCL Device Name\" [--probe] " << endl;
+    cerr << "\t     not currently used\"" << endl;
+    cerr << endl;
+    cerr << "\t[--platform \"OpenCL Platform Name\"] --all-devices" << endl;
+    cerr << "\t    Open and show details on some default OpenCL compute device(s) reported by teh system." << endl;
+    cerr << "\t    With \"--platform\" opens devices in the given platform" << endl;
+    cerr << "\t    Note: some systems do not properly report a set of default OpencCL devices." << endl;
+    cerr << endl;
+    cerr << "See the OpenCL specifications from https:://www.khronos.org/registry/OpenCL/ for more information" << endl;
+    cerr << "about the platform and device details reported by " << cmd_name << '.' << endl;
+    cerr << endl;
+}
 void parse_args(char const *argv[], struct args &args)
 {
     while (argv[0])
     {
 	char const *arg = argv[0];
+
+	if (!strncmp("-h", arg, sizeof "-h") || !strncmp("--help", arg, sizeof "--help") || !strncmp("--usage", arg, sizeof "--usage"))
+	    throw SyntaxError();
 
 	if (!strncmp("--platforms", arg, sizeof "--platforms"))
 	{
@@ -103,10 +170,10 @@ void parse_args(char const *argv[], struct args &args)
 		continue;
 	    }
 
-	    throw std::runtime_error("Command line missing device name");
+	    throw SyntaxError("Command line option " + std::string(arg) + " missing device name argument.");
 	}
 
-	throw std::runtime_error("Unknown command line option");
+	throw SyntaxError("Unknown command line option " + std::string(arg));
     }
 
     if (!(args.list_platforms || args.list_platform_devices || args.list_default_devices || args.list_all_devices || args.probe))
@@ -211,7 +278,7 @@ try
 
 	cout << endl;
 
-	cl_ulong const lines = 1000, cols = 1000, internal_size = 1000;
+	cl_ulong const lines = 8000, cols = 8000, internal_size = 8000;
 
 	cl::Buffer
 	    m(context, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY /* CL_MEM_HOST_NO_ACCESS */, sizeof(cl_double) * lines * internal_size),
@@ -234,7 +301,8 @@ try
 	mat.waitForCompletion();
 	time(&endTime);
 
-	cout << (static_cast<double>(lines) * internal_size * cols * 2 / 1000/1000/1000) / static_cast<double>(endTime - startTime) << " GFLOPS" << endl;
+	cout << std::setprecision(5) << std::fixed << (static_cast<double>(lines) * internal_size * cols * 2 / 1000/1000/1000) / static_cast<double>(endTime - startTime) << " GFLOPS" << endl;
+
 
 	// mat.readBufferRectAsync(result, lines, cols, 852, 718, 20, 20, sub_buffer);
 	// mat.waitForCompletion();
@@ -245,13 +313,25 @@ try
 	for (unsigned i = 0; i < 10; i++)
 	{
 	    for (unsigned j = 0; j < 10; j++)
-		cout << std::setw(12) << std::fixed << std::setprecision(5) << std::setfill(' ') << std::setiosflags(cout.right) << std::showpos << sub_buffer[i * 10 + j] << ' ';
+		cout << std::setw(14) << std::setprecision(5) << std::fixed << std::setfill(' ') << std::setiosflags(cout.right) << std::showpos << sub_buffer[i * 10 + j] << ' ';
 
 	    cout << endl;
 	}
     }
 	
     return EXIT_SUCCESS;
+}
+catch(SyntaxError const &err)
+{
+    err.ShowSyntax(argv[0]);
+
+    if (err.what() && *err.what())
+    {
+	cerr << endl;
+	cerr << err.what() << endl;
+    }
+
+    return EXIT_FAILURE;
 }
 catch(cl::Error const &err)
 {
