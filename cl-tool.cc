@@ -66,21 +66,17 @@ void SyntaxError::ShowSyntax(char const *cmd_name)
 {
     cerr << "Syntax:" << endl;
     cerr << "\t" << cmd_name << " [--probe]" << endl;
-    cerr << "\t" << cmd_name << " --default-devices" << endl;
-    cerr << "\t" << cmd_name << " --platforms [--devices]" << endl;
-    cerr << "\t" << cmd_name << " --platform \"OpencCL Platform Name\" [--devices]" << endl;
-    cerr << "\t" << cmd_name << " --platform \"OpencCL Platform Name\" --device \"OpenCL DeviceName\" [--probe]" << endl;
-    cerr << "\t" << cmd_name << " [--platform \"OpenCL Platform Name\"] --all-devices" << endl;
+    cerr << "\t" << cmd_name << " [--probe] --platforms [--devices]" << endl;
+    cerr << "\t" << cmd_name << " [--probe] --platform \"OpencCL Platform Name\" [--devices]" << endl;
+    cerr << "\t" << cmd_name << " [--probe] --platform \"OpencCL Platform Name\" --device \"OpenCL DeviceName\"" << endl;
+    cerr << "\t" << cmd_name << " [--probe] --default-devices" << endl;
+    cerr << "\t" << cmd_name << " [--probe] [--platform \"OpenCL Platform Name\"] --all-devices" << endl;
     cerr << endl;
     cerr << cmd_name << " will by default attempt to probe the default OpenCL device(s) using" << endl;
     cerr << "some trivial matrix multiplication and report the number of floating-point" << endl;
     cerr << "operations per second in GFLOPS." << endl;
     cerr << endl;
     cerr << "Options:" << endl;
-    cerr << "\t--default-devices" << endl;
-    cerr << "\t     Show details on some default OpenCL compute device(s) reported by the system." << endl;
-    cerr << "\t     Note: some systems do not properly report a default OpenCL device." << endl;
-    cerr << endl;
     cerr << "\t--platforms [--devices]" << endl;
     cerr << "\t     List available OpenCL platforms on the system." << endl;
     cerr << "\t     With --devices also report details on available OpenCL devices in each platform." << endl;
@@ -91,6 +87,10 @@ void SyntaxError::ShowSyntax(char const *cmd_name)
     cerr << endl;
     cerr << "\t--platform \"OpenCL Platform Name\" --device \"OpenCL Device Name\" [--probe] " << endl;
     cerr << "\t     not currently used\"" << endl;
+    cerr << endl;
+    cerr << "\t--default-devices" << endl;
+    cerr << "\t     Show details on some default OpenCL compute device(s) reported by the system." << endl;
+    cerr << "\t     Note: some systems do not properly report a default OpenCL device." << endl;
     cerr << endl;
     cerr << "\t[--platform \"OpenCL Platform Name\"] --all-devices" << endl;
     cerr << "\t    Open and show details on some default OpenCL compute device(s) reported by teh system." << endl;
@@ -278,7 +278,7 @@ try
 
 	cout << endl;
 
-	cl_ulong const lines = 8000, cols = 8000, internal_size = 8000;
+	cl_ulong const lines = 2048, cols = 2048, internal_size = 2048;
 
 	cl::Buffer
 	    m(context, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY /* CL_MEM_HOST_NO_ACCESS */, sizeof(cl_double) * lines * internal_size),

@@ -106,7 +106,7 @@ extern char const *error_string(cl_int err)
 	case CL_INVALID_WORK_DIMENSION:
 	    return "INVALID_WORK_DIMENSION";
 	case CL_INVALID_WORK_GROUP_SIZE:
-	    return "INVALID__GROUP_SIZE";
+	    return "INVALID_WORK_GROUP_SIZE";
 	case CL_INVALID_WORK_ITEM_SIZE:
 	    return "INVALID_WORK_ITEM_SIZE";
 	case CL_INVALID_GLOBAL_OFFSET:
