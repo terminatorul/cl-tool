@@ -209,7 +209,7 @@ try
 
 	cout << endl;
 
-	cl_ulong const lines = 1000, cols = 1000, internal_size = 10000;
+	cl_ulong const lines = 500, cols = 500, internal_size = 500;
 
 	cl::Buffer
 	    m(context, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY /* CL_MEM_HOST_NO_ACCESS */, sizeof(cl_double) * lines * internal_size),
@@ -221,7 +221,8 @@ try
 
 	mat.random_fill<cl_float>(m, lines, internal_size, -100.0f, 100.0f);
 	mat.random_fill<cl_float>(n, internal_size, cols, -100.0f, 100.0f);
-	mat.zero_fill<cl_float>(result, lines, cols);
+	//mat.zero_fill<cl_float>(result, lines, cols);
+	mat.random_fill<cl_float>(result, internal_size, cols, 0.0f, 0.0001f);
 	mat.waitForCompletion();
 
 
@@ -234,6 +235,7 @@ try
 	cout << (static_cast<double>(lines) * internal_size * cols * 2 / 1000/1000/1000) / static_cast<double>(endTime - startTime) << " GFLOPS" << endl;
 
 	mat.readBufferRectAsync(result, lines, cols, 852, 718, 20, 20, sub_buffer);
+	mat.waitForCompletion();
 	
 
 	cout << "Sample sub-matrix:\n";

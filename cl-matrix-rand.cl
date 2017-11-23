@@ -32,7 +32,7 @@ kernel void multiply_float_matrix_block(global float const *m, ulong m_lines, ul
     }
 }
 
-#if defined(cl_khr_fp64)
+#if 0 && defined(cl_khr_fp64)
 
 __kernel void random_fill_double_block(__global double *matrix, ulong lines, ulong cols, double minVal, double maxVal)
 {
