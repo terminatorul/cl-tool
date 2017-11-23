@@ -44,6 +44,9 @@ class Matrix
 	template<typename FloatType>
 	    void readBufferRectAsync(cl::Buffer const &inputBuff, cl::size_type buffLines, cl::size_type buffCols, cl::size_type startLn, cl::size_type startCol, cl::size_type lines, cl::size_type cols, std::vector<FloatType> &region);
 
+	template<typename FloatType>
+	    void readBufferRect(cl::Buffer const &inputBuff, cl::size_type buffLines, cl::size_type buffCols, cl::size_type startLn, cl::size_type startCol, cl::size_type lines, cl::size_type cols, std::vector<FloatType> &region);
+
 	void waitForCompletion();
 };
 
@@ -73,6 +76,19 @@ template<typename FloatType>
 	    buffCols * sizeof(FloatType), buffCols * buffLines * sizeof(FloatType), cols * sizeof(FloatType), cols * lines * sizeof(FloatType),
 	    region.data(), (mulEvents.empty() ? &waitEvents : &mulEvents), &event);
     mulEvents.push_back(event);
+}
+
+template<typename FloatType>
+    void Matrix::readBufferRect(cl::Buffer const &inputBuff, cl::size_type buffLines, cl::size_type buffCols, cl::size_type startLn, cl::size_type startCol, cl::size_type lines, cl::size_type cols, std::vector<FloatType> &region)
+{
+    cols = std::min(cols, buffCols - startCol);
+    lines = std::min(lines, buffLines - startLn);
+
+    region.resize(cols * lines);
+
+    cmdQueue.enqueueReadBufferRect(inputBuff, CL_TRUE, { startCol * sizeof (FloatType), startLn, 0 }, { 0, 0, 0 }, { cols * sizeof(FloatType), lines, 1 },
+	    buffCols * sizeof(FloatType), buffCols * buffLines * sizeof(FloatType), cols * sizeof(FloatType), cols * lines * sizeof(FloatType),
+	    region.data(), (mulEvents.empty() ? &waitEvents : &mulEvents));
 }
 
 inline void Matrix::waitForCompletion()

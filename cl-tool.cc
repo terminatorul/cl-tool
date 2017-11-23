@@ -126,6 +126,8 @@ void CL_CALLBACK context_error_notification(char const *error_info, void const *
     cerr << "Context error: " << error_info << endl;
 }
 
+extern bool has_extension(std::string const &ext_list, char const *ext, std::size_t ext_size);
+
 int main(int argc, char const *argv[])
 try
 {
@@ -209,7 +211,7 @@ try
 
 	cout << endl;
 
-	cl_ulong const lines = 500, cols = 500, internal_size = 500;
+	cl_ulong const lines = 1000, cols = 1000, internal_size = 1000;
 
 	cl::Buffer
 	    m(context, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY /* CL_MEM_HOST_NO_ACCESS */, sizeof(cl_double) * lines * internal_size),
@@ -234,9 +236,10 @@ try
 
 	cout << (static_cast<double>(lines) * internal_size * cols * 2 / 1000/1000/1000) / static_cast<double>(endTime - startTime) << " GFLOPS" << endl;
 
-	mat.readBufferRectAsync(result, lines, cols, 852, 718, 20, 20, sub_buffer);
-	mat.waitForCompletion();
-	
+	// mat.readBufferRectAsync(result, lines, cols, 852, 718, 20, 20, sub_buffer);
+	// mat.waitForCompletion();
+
+	mat.readBufferRect(result, lines, cols, 852, 718, 20, 20, sub_buffer);
 
 	cout << "Sample sub-matrix:\n";
 	for (unsigned i = 0; i < 10; i++)
