@@ -413,25 +413,21 @@ static char const *memoryCacheType(cl_device_mem_cache_type memCacheType)
     }
 }
 
-extern bool has_extension(std::string const &ext_list, char const *ext, std::size_t ext_size)
+extern bool has_extension(std::string const &ext_list, char const *ext, std::size_t ext_len)
 {
-    ext_size--;	    // ignore the null terminator
-    std::string::const_iterator it = std::search(ext_list.cbegin(), ext_list.cend(), ext, ext + ext_size);
+    std::string::const_iterator it = ext_list.cbegin();
 
-    if (it != ext_list.cend())
+    while
+	(
+	    (it = std::search(it, ext_list.cend(), ext, ext + ext_len)) != ext_list.cend()
+		&&
+	    ((it != ext_list.cbegin() && *(it -1) != ' ') || (ext_list.cend() - it > ext_len && *(it + ext_len) != ' ' && *(it + ext_len) != '\0'))
+	)
     {
-	if (it != ext_list.cbegin())
-	    if (*(it - 1) != ' ')
-		return false;
-
-	if (it + ext_size != ext_list.cend())
-	    if (*(it + ext_size) != ' ' && *(it + ext_size) != '\0')
-		    return false;
-
-	return true;
+	it++;
     }
 
-    return false;
+    return it != ext_list.cend();
 }
 
 extern void show_cl_device(cl::Device &device, bool showPlatform)
@@ -483,7 +479,7 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
 					 << ", int: " << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT>() << ", long: " << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG>()
 					 << ", half: " << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF>() << ", float: " << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT>()
 					 << ", double: " << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE>() << ")" << endl;
-    cout << "\tHalf float config:      " << (has_extension(device.getInfo<CL_DEVICE_EXTENSIONS>(), "cl_khr_fp16", sizeof "cl_khr_fp16") ?
+    cout << "\tHalf float config:      " << (has_extension(device.getInfo<CL_DEVICE_EXTENSIONS>(), "cl_khr_fp16") ?
 						list_float_support(device.getInfo<CL_DEVICE_HALF_FP_CONFIG>()) : "-") << endl;
     cout << "\tSingle float config:    " << list_float_support(device.getInfo<CL_DEVICE_SINGLE_FP_CONFIG>()) << endl;
     cout << "\tDouble float config:    " << list_float_support(device.getInfo<CL_DEVICE_DOUBLE_FP_CONFIG>()) << endl;

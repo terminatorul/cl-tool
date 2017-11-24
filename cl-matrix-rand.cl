@@ -62,5 +62,5 @@ __kernel void random_fill_double_block(__global double *matrix, ulong lines, ulo
 #endif
 
 /*
- * vi:ft=opencl
+ * vi:ft=opencl:ts=8
  */

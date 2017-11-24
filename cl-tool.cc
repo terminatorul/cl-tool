@@ -48,7 +48,7 @@ class SyntaxError: public std::runtime_error
 };
 
 inline SyntaxError::SyntaxError()
-    : runtime_error("")
+    : runtime_error(std::string())
 {
 }
 
@@ -68,7 +68,7 @@ void SyntaxError::ShowSyntax(char const *cmd_name)
     cerr << "\t" << cmd_name << " [--probe]" << endl;
     cerr << "\t" << cmd_name << " [--probe] --platforms [--devices]" << endl;
     cerr << "\t" << cmd_name << " [--probe] --platform \"OpencCL Platform Name\" [--devices]" << endl;
-    cerr << "\t" << cmd_name << " [--probe] --platform \"OpencCL Platform Name\" --device \"OpenCL DeviceName\"" << endl;
+    cerr << "\t" << cmd_name << " [--probe] --platform \"OpencCL Platform Name\" --device \"OpenCL Device Name\"" << endl;
     cerr << "\t" << cmd_name << " [--probe] --default-devices" << endl;
     cerr << "\t" << cmd_name << " [--probe] [--platform \"OpenCL Platform Name\"] --all-devices" << endl;
     cerr << endl;
@@ -77,6 +77,12 @@ void SyntaxError::ShowSyntax(char const *cmd_name)
     cerr << "operations per second in GFLOPS." << endl;
     cerr << endl;
     cerr << "Options:" << endl;
+    cerr << "\t--probe" << endl;
+    cerr << "\t     Attempts to run a matrix multiplication function on the device(s) using single-precision"<< endl;
+    cerr << "\t     floating-point operations and report the operation speed in GFLOPS. With no other options," << endl;
+    cerr << "\t     this is the default operation, run on an implicitly-selected set of default devices chosen" << endl;
+    cerr << "\t     by the OpenCL system." << endl;
+    cerr << endl;
     cerr << "\t--platforms [--devices]" << endl;
     cerr << "\t     List available OpenCL platforms on the system." << endl;
     cerr << "\t     With --devices also report details on available OpenCL devices in each platform." << endl;
@@ -86,7 +92,7 @@ void SyntaxError::ShowSyntax(char const *cmd_name)
     cerr << "\t     With --devices   report details on available OpenCL devices in selected platform." << endl;
     cerr << endl;
     cerr << "\t--platform \"OpenCL Platform Name\" --device \"OpenCL Device Name\" [--probe] " << endl;
-    cerr << "\t     not currently used\"" << endl;
+    cerr << "\t     not currently used." << endl;
     cerr << endl;
     cerr << "\t--default-devices" << endl;
     cerr << "\t     Show details on some default OpenCL compute device(s) reported by the system." << endl;
@@ -192,8 +198,6 @@ void CL_CALLBACK context_error_notification(char const *error_info, void const *
 {
     cerr << "Context error: " << error_info << endl;
 }
-
-extern bool has_extension(std::string const &ext_list, char const *ext, std::size_t ext_size);
 
 int main(int argc, char const *argv[])
 try
