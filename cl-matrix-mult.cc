@@ -19,10 +19,27 @@ static std::string readSourceFile(char const *file_name)
 
 static char const program_file_name[] = "./cl-matrix-rand.cl";
 
-static cl::Program &build_program(cl::Program &program)
+enum class FloatType { Half, Single, Double, Quad };
+
+char const *float_type_name(FloatType floatType)
+{
+    switch (floatType)
+    {
+	case FloatType::Half:
+	    return "half";
+	case FloatType::Single:
+	    return "float";
+	case FloatType::Double:
+	    return "double";
+	case FloatType::Quad:
+	    return "quad";
+    }
+}
+
+static cl::Program &build_program(cl::Program &program, FloatType floatType)
 try
 {
-    program.build("-cl-std=CL1.1 -DFLOAT_TPYE=float");
+    program.build((std::string("-cl-std=CL1.1 -DFLOAT_TPYE=") + float_type_name(floatType)).c_str());
 
     return program;
 }
@@ -50,7 +67,7 @@ catch(cl::Error const &error)
 
 Matrix::Matrix(cl::Context &context)
     : cmdQueue(context /* , cl::QueueProperties::OutOfOrder */), program(context, readSourceFile(program_file_name), false),
-      random_fill_float_block(build_program(program), "random_fill_float_block"),
+      random_fill_float_block(build_program(program, FloatType::Single), "random_fill_float_block"),
       multiply_float_matrix_block(program, "multiply_float_matrix_block") //,
       // random_fill_double_block(program, "random_fill_double_block")
 {
