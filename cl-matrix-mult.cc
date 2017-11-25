@@ -39,7 +39,7 @@ char const *float_type_name(FloatType floatType)
 static cl::Program &build_program(cl::Program &program, FloatType floatType)
 try
 {
-    program.build((std::string("-cl-std=CL1.1 -DFLOAT_TPYE=") + float_type_name(floatType)).c_str());
+    program.build((std::string("-cl-std=CL1.1 -DFLOAT_TYPE=") + float_type_name(floatType)).c_str());
 
     return program;
 }
