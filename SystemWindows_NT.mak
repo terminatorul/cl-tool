@@ -1,6 +1,7 @@
 # Windows -only include makefile
 
-OPENCL_SDK_DIR=C:/Intel/OpenCL/sdk
+# C:/Intel/OpenCL/sdk
+OPENCL_SDK_DIR=$(INTELOCLSDKROOT)
 OPENCL_SDK_ARCH=x64
 
 OPENCL_INCLUDE_DIR=$(OPENCL_SDK_DIR)/include

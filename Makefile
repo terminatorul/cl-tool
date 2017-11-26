@@ -35,21 +35,21 @@ all: ${OBJ_DIR}/cl-tool${EXE_SUFFIX} ${OBJ_DIR}/cl-matrix-rand.cl
 ${OBJ_DIR}/cl-tool$(OBJ_SUFFIX): ${SRC_DIR}/cl-tool.cc $(CL_TOOL_HEADERS)
 	$(NIX_CMD) $(CC) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ ${SRC_DIR}/cl-tool.cc
 	$(WIN_CMD) $(CC) $(CPPFLAGS) $(CXXFLAGS) -c -o $@.broken ${SRC_DIR}/cl-tool.cc
-	$(WIN_CMD) $(ComSpec) /V:ON /C For /F "usebackq tokens=1,*" %%i In (`$(NM) "$@.broken" --format POSIX ^^^| findstr .weak.`) Do @Echo --weaken-symbol=%%i >"${OBJ_DIR}\weakSym_$(@F).txt"
-	$(WIN_CMD) $(OBJCOPY) @"${OBJ_DIR}\weakSym_$(@F).txt" "$@.broken" "$@"
+	$(WIN_CMD) (For /F "usebackq tokens=1,*" %%i In (`$(NM) "$@.broken" --format POSIX ^| findstr .weak.`) Do @Echo --weaken-symbol=%%i) >"${OBJ_DIR}\weakSym_$(@F).txt"
+	$(WIN_CMD) "$(OBJCOPY)" @"${OBJ_DIR}\weakSym_$(@F).txt" "$@.broken" "$@"
 	$(WIN_CMD) $(RM_CMD) "$@.broken" "${OBJ_DIR}\weakSym_$(@F).txt"
 
 ${OBJ_DIR}/cl-matrix-mult$(OBJ_SUFFIX): ${SRC_DIR}/cl-matrix-mult.cc ${SRC_DIR}/cl-matrix-mult.hh
 	$(NIX_CMD) $(CC) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ ${SRC_DIR}/cl-matrix-mult.cc
 	$(WIN_CMD) $(CC) $(CPPFLAGS) $(CXXFLAGS) -c -o $@.broken ${SRC_DIR}/cl-matrix-mult.cc
-	$(WIN_CMD) $(ComSpec) /V:ON /C For /F "usebackq tokens=1,*" %%i In (`$(NM) "$@.broken" --format POSIX ^^^| findstr .weak.`) Do @Echo --weaken-symbol=%%i >"${OBJ_DIR}\weakSym_$(@F).txt"
-	$(WIN_CMD) $(OBJCOPY) @"${OBJ_DIR}\weakSym_$(@F).txt" "$@.broken" "$@"
+	$(WIN_CMD) (For /F "usebackq tokens=1,*" %%i In (`$(NM) "$@.broken" --format POSIX ^| findstr .weak.`) Do @Echo --weaken-symbol=%%i) >"${OBJ_DIR}\weakSym_$(@F).txt"
+	$(WIN_CMD) "$(OBJCOPY)" @"${OBJ_DIR}\weakSym_$(@F).txt" "$@.broken" "$@"
 	$(WIN_CMD) $(RM_CMD) "$@.broken" "${OBJ_DIR}\weakSym_$(@F).txt"
 
 ${OBJ_DIR}/cl-platform-info$(OBJ_SUFFIX): ${SRC_DIR}/cl-platform-info.cc ${SRC_DIR}/cl-platform-info.hh
 	$(NIX_CMD) $(CC) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ ${SRC_DIR}/cl-platform-info.cc
 	$(WIN_CMD) "$(CC)" $(CPPFLAGS) $(CXXFLAGS) -c -o "$@.broken" "${SRC_DIR}/cl-platform-info.cc"
-	$(WIN_CMD) "$(ComSpec)" /V:ON /C For /F "usebackq tokens=1,*" %%i In (`$(NM) "$@.broken" --format POSIX ^^^| findstr .weak.`) Do @Echo --weaken-symbol=%%i >"${OBJ_DIR}\weakSym_$(@F).txt"
+	$(WIN_CMD) (For /F "usebackq tokens=1,*" %%i In (`$(NM) "$@.broken" --format POSIX ^| findstr .weak.`) Do @Echo --weaken-symbol=%%i) >"${OBJ_DIR}\weakSym_$(@F).txt"
 	$(WIN_CMD) "$(OBJCOPY)" @"${OBJ_DIR}\weakSym_$(@F).txt" "$@.broken" "$@"
 	$(WIN_CMD) $(RM_CMD) "$@.broken" "${OBJ_DIR}\weakSym_$(@F).txt"
 
