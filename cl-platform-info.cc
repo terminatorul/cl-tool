@@ -139,6 +139,8 @@ extern char const *error_string(cl_int err)
 	    return "INVALID_PIPE_SIZE";
 	case CL_INVALID_DEVICE_QUEUE:
 	    return "INVALID_DEVICE_QUEUE";
+	case CL_PLATFORM_NOT_FOUND_KHR:
+	    return "CL_PLATFORM_NOT_FOUND_KHR";
 	default:
 	    return "OPEN_CL_ERROR";
     }
@@ -352,13 +354,14 @@ static std::string list_float_support(cl_device_fp_config fp_config)
 
     for (auto config: std::vector<cl_device_fp_config> { CL_FP_DENORM, CL_FP_INF_NAN, CL_FP_ROUND_TO_NEAREST, CL_FP_ROUND_TO_ZERO, CL_FP_ROUND_TO_INF, CL_FP_FMA, CL_FP_SOFT_FLOAT })
     {
-	if (fp_config & config)
-	{
-	    if (!str.str().empty())
-		    str << ", ";
+	if (!str.str().empty())
+		str << ", ";
 
-	    str << float_config(config);
-	}
+	if (fp_config & config)
+	    str << "[+] " << float_config(config);
+	else
+	    str << "[ ] " << float_config(config);
+
     }
 
     if (str.str().empty())
@@ -421,7 +424,7 @@ extern bool has_extension(std::string const &ext_list, char const *ext, std::siz
 	(
 	    (it = std::search(it, ext_list.cend(), ext, ext + ext_len)) != ext_list.cend()
 		&&
-	    ((it != ext_list.cbegin() && *(it -1) != ' ') || (ext_list.cend() - it > ext_len && *(it + ext_len) != ' ' && *(it + ext_len) != '\0'))
+	    ((it != ext_list.cbegin() && *(it - 1) != ' ') || (std::size_t(ext_list.cend() - it) > ext_len && *(it + ext_len) != ' ' && *(it + ext_len) != '\0'))
 	)
     {
 	it++;
@@ -493,19 +496,18 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
     cout << endl;
 }
 
-extern void show_cl_platform(cl::Platform &platform, bool list_devices, cl::Platform const &defaultPlatform)
+extern void show_cl_platform(cl::Platform &platform, bool list_devices)
 {
 #if defined(CL_HPP_PARAM_NAME_INFO_1_0_)
-    cout << "Default:       \t" << (platform.Wrapper<cl_platform_id>::get() == defaultPlatform.Wrapper<cl_platform_id>::get() ? "*** DEFAULT ***" : "") << endl;
     cout << "Platform ID:   \t" << platform.Wrapper<cl_platform_id>::get() << endl;
 #else
-    cout << "Default:       \t" << (platform() == defaultPlatform() ? "*** DEFAULT ***" : "") << endl;
     cout << "Platform ID:   \t" << platform() << endl;
 #endif
     cout << "Vendor:        \t" << platform.getInfo<CL_PLATFORM_VENDOR>() << endl;
     cout << "Platform name: \t" << platform.getInfo<CL_PLATFORM_NAME>() << endl;
     cout << "Profile:       \t" << platform.getInfo<CL_PLATFORM_PROFILE>() << endl;
     cout << "Version:       \t" << platform.getInfo<CL_PLATFORM_VERSION>() << endl;
+    cout << "ICD suffix:    \t" << platform.getInfo<CL_PLATFORM_ICD_SUFFIX_KHR>() << endl;
 
     cout << "Extensions:    \t" << endl;
     std::string extensions = platform.getInfo<CL_PLATFORM_EXTENSIONS>();
@@ -532,32 +534,4 @@ extern void show_cl_platform(cl::Platform &platform, bool list_devices, cl::Plat
     }
 
     cout << endl;
-}
-
-extern void list_default_cl_devices()
-{
-    cl_uint device_count = 0;
-    ::clGetDeviceIDs(nullptr, CL_DEVICE_TYPE_ALL, 0, nullptr, &device_count);
-    std::vector<cl_device_id> devices(device_count);
-    cl_int result = ::clGetDeviceIDs(nullptr, CL_DEVICE_TYPE_ALL, devices.size(), devices.data(), &device_count);
-
-    switch (result)
-    {
-	case CL_SUCCESS:
-	    cout << "Default devices:" << endl;
-	    for (auto cl_device: devices)
-	    {
-		cl::Device device(cl_device);
-		show_cl_device(device);
-	    }
-	    break;
-	case CL_DEVICE_NOT_FOUND:
-	    cerr << "No default devices !";
-	    break;
-	case CL_INVALID_PLATFORM:
-	    cerr << "NULL platform invalid !";
-	    break;
-	default:
-	    throw cl::Error(result, "clGetDeviceIDs");
-    }
 }

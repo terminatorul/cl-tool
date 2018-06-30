@@ -6,12 +6,13 @@
 #include <vector>
 #include <string>
 #include <regex>
+#include <algorithm>
 #include <iostream>
 #include <iomanip>
 #include <sstream>
 
 #if defined(__APPLE__) || defined(__MACOSX__)
-# include <OpneCL/cl2.hpp>
+# include <OpenCL/cl2.hpp>
 #else
 # include <CL/cl2.hpp>
 #endif
@@ -23,12 +24,10 @@ using std::cerr;
 using std::cout;
 using std::endl;
 
-
 struct args
 {
     bool list_platforms = false;
     bool list_platform_devices = false;
-    bool list_default_devices = false;
     bool list_all_devices = false;
     bool probe = false;
 
@@ -67,17 +66,16 @@ void SyntaxError::ShowSyntax(char const *cmd_name)
     cerr << "Syntax:" << endl;
     cerr << "\t" << cmd_name << " [--probe]" << endl;
     cerr << "\t" << cmd_name << " [--probe] --platforms [--devices]" << endl;
-    cerr << "\t" << cmd_name << " [--probe] --platform \"OpencCL Platform Name\" [--devices]" << endl;
-    cerr << "\t" << cmd_name << " [--probe] --platform \"OpencCL Platform Name\" --device \"OpenCL Device Name\"" << endl;
-    cerr << "\t" << cmd_name << " [--probe] --default-devices" << endl;
-    cerr << "\t" << cmd_name << " [--probe] [--platform \"OpenCL Platform Name\"] --all-devices" << endl;
+    cerr << "\t" << cmd_name << " [--probe] --platform \"OpenCL Platform Name\" [--devices]" << endl;
+    cerr << "\t" << cmd_name << " [--probe] --platform \"OpenCL Platform Name\" --device \"OpenCL Device Name\"" << endl;
+    cerr << "\t" << cmd_name << " [--probe] --platform \"OpenCL Platform Name\" --all-devices" << endl;
     cerr << endl;
     cerr << cmd_name << " will by default attempt to probe the default OpenCL device(s) using a trivial matrix" << endl;
     cerr << "multiplication and report the number of floating-point operations per second in GFLOPS." << endl;
     cerr << endl;
     cerr << "Options:" << endl;
     cerr << "\t--probe" << endl;
-    cerr << "\t     Attempts to run a matrix multiplication function on the device(s) using single-precision"<< endl;
+    cerr << "\t     Attempts to run a matrix multiplication function on the device(s) using single-precision" << endl;
     cerr << "\t     floating-point operations and report the operation speed in GFLOPS. With no other options," << endl;
     cerr << "\t     this is the default operation, run on an implicitly-selected set of default compute devices" << endl;
     cerr << "\t     chosen by the OpenCL system." << endl;
@@ -93,19 +91,14 @@ void SyntaxError::ShowSyntax(char const *cmd_name)
     cerr << "\t--platform \"OpenCL Platform Name\" --device \"OpenCL Device Name\" [--probe] " << endl;
     cerr << "\t     not currently used." << endl;
     cerr << endl;
-    cerr << "\t--default-devices" << endl;
-    cerr << "\t     Show details on some default OpenCL compute device(s) reported by the system." << endl;
-    cerr << "\t     Note: some systems do not properly report a default OpenCL device." << endl;
+    cerr << "\t--platform \"OpenCL Platform Name\" --all-devices" << endl;
+    cerr << "\t    Show details on OpenCL compute device(s) in the given platform" << endl;
     cerr << endl;
-    cerr << "\t[--platform \"OpenCL Platform Name\"] --all-devices" << endl;
-    cerr << "\t    Open and show details on some default OpenCL compute device(s) reported by teh system." << endl;
-    cerr << "\t    With \"--platform\" opens devices in the given platform" << endl;
-    cerr << "\t    Note: some systems do not properly report a set of default OpencCL devices." << endl;
-    cerr << endl;
-    cerr << "See the OpenCL specifications from https:://www.khronos.org/registry/OpenCL/ for more information" << endl;
+    cerr << "See the OpenCL specification at https:://www.khronos.org/registry/OpenCL/ for more information" << endl;
     cerr << "about the platform and device details reported by " << cmd_name << '.' << endl;
     cerr << endl;
 }
+
 void parse_args(char const *argv[], struct args &args)
 {
     while (argv[0])
@@ -118,13 +111,6 @@ void parse_args(char const *argv[], struct args &args)
 	if (!strncmp("--platforms", arg, sizeof "--platforms"))
 	{
 	    args.list_platforms = true;
-	    argv++;
-	    continue;
-	}
-
-	if (!strncmp("--default-devices", arg, sizeof "--default-devices"))
-	{
-	    args.list_default_devices = true;
 	    argv++;
 	    continue;
 	}
@@ -181,7 +167,7 @@ void parse_args(char const *argv[], struct args &args)
 	throw SyntaxError("Unknown command line option " + std::string(arg));
     }
 
-    if (!(args.list_platforms || args.list_platform_devices || args.list_default_devices || args.list_all_devices || args.probe))
+    if (!(args.list_platforms || args.list_platform_devices || args.list_all_devices || args.probe))
 	args.probe = true;
 }
 
@@ -190,7 +176,7 @@ void list_context_devices(cl::Context &context)
     std::vector<cl::Device> devices(context.getInfo<CL_CONTEXT_DEVICES>());
 
     for (auto &device: devices)
-	show_cl_device(device, true);
+	show_cl_device(device);
 }
 
 void CL_CALLBACK context_error_notification(char const *error_info, void const *private_info, std::size_t private_info_size, void *user_data)
@@ -203,7 +189,7 @@ try
 {
     struct args args;
 
-    parse_args(&argv[1], args);
+    parse_args(argv + 1, args);
 
     if (args.list_platforms)
     {
@@ -213,34 +199,12 @@ try
 
 	if (!clPlatforms.empty())
 	{
-	    cl::Platform defaultPlatform;
-	    
-	    try
-	    {
-		defaultPlatform = cl::Platform::getDefault();
-	    }
-	    catch(cl::Error const &err)
-	    {
-		cerr << "Select default platform failed with " << error_string(err.err()) << " in call to " << err.what() << endl;
-	    }
-	    catch(std::exception const &ex)
-	    {
-		cerr << "Select default platform failed: " << ex.what() << endl;
-	    }
-	    catch(...)
-	    {
-		cerr << "Select default platform failed." << endl;
-	    }
-
 	    for (auto &platform: clPlatforms)
-		show_cl_platform(platform, args.list_platform_devices, defaultPlatform);
+		show_cl_platform(platform, args.list_platform_devices);
 	}
 
 	cout << "OpenCL platforms: " << clPlatforms.size() << endl;
     }
-
-    if (args.list_default_devices)
-	list_default_cl_devices();
 
     cl_platform_id platform;
     std::array<cl_context_properties, 3> context_props = { 0, 0, 0 };
@@ -253,11 +217,21 @@ try
 	cl::Platform::get(&clPlatforms);
 
 	for (auto it = clPlatforms.cbegin(); !platform_found && it != clPlatforms.cend(); it++)
-	    if (!strncmp(it->getInfo<CL_PLATFORM_NAME>().data(), args.select_platform_name.data(), args.select_platform_name.length()))
+	    if (!strncmp(it->getInfo<CL_PLATFORM_NAME>().data(), args.select_platform_name.data(),
+			std::min(it->getInfo<CL_PLATFORM_NAME>().size(), args.select_platform_name.length())))
 	    {
 		platform = it->Wrapper<cl_platform_id>::get();
 		platform_found = true;
 	    }
+
+	if (!platform_found)
+	    for (auto it = clPlatforms.cbegin(); !platform_found && it != clPlatforms.cend(); it++)
+		if(!strncmp(it->getInfo<CL_PLATFORM_VENDOR>().data(), args.select_platform_name.data(),
+			std::min(it->getInfo<CL_PLATFORM_VENDOR>().size(), args.select_platform_name.length())))
+		{
+		    platform = it->Wrapper<cl_platform_id>::get();
+		    platform_found = true;
+		}
 
 	if (!platform_found)
 	    throw std::runtime_error("No such platform: " + args.select_platform_name);
@@ -274,8 +248,8 @@ try
 
     if (args.probe)
     {
-	cout << "Probing devices: \n";
-	
+	cout << "Probing device" << (context.getInfo<CL_CONTEXT_DEVICES>().size() > 1 ? "s" : "") << ": \n";
+
 	for (auto const &device: context.getInfo<CL_CONTEXT_DEVICES>())
 	    cout << '\t' << device.getInfo<CL_DEVICE_NAME>() << endl;
 
@@ -338,7 +312,11 @@ catch(SyntaxError const &err)
 }
 catch(cl::Error const &err)
 {
-    cerr << "OpenCL error " << error_string(err.err()) << " in call to function " << err.what() << "()" << endl;
+    if (err.err() == CL_PLATFORM_NOT_FOUND_KHR)
+	cerr << "No available OpenCL platforms are installed." << endl;
+    else
+	cerr << "OpenCL error " << error_string(err.err()) << " in call to function " << err.what() << "()" << endl;
+
     return EXIT_FAILURE;
 }
 catch(std::exception const &ex)

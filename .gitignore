@@ -52,3 +52,4 @@ nbproject
 .*
 tags
 cscope.out
+/cl-tool.vim

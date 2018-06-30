@@ -9,8 +9,7 @@
 
 extern char const *error_string(cl_int err);
 extern void show_cl_device(cl::Device &device, bool showPlatform = false);
-extern void show_cl_platform(cl::Platform &platform, bool list_devices, cl::Platform const &defaultPlatform);
-extern void list_default_cl_devices();
+extern void show_cl_platform(cl::Platform &platform, bool list_devices);
 extern bool has_extension(std::string const &ext_list, char const *ext, std::size_t length);
 
 template <typename CharT, std::size_t length>
