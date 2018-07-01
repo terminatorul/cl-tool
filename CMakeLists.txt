@@ -11,14 +11,17 @@ set(CL_TOOL_TARGET_SOURCES cl-matrix-rand.cl)
 
 add_executable(cl-tool ${CL_TOOL_SOURCES})
 target_compile_features(cl-tool PRIVATE cxx_std_14)
-target_compile_definitions(cl-tool PRIVATE CL_HPP_TARGET_OPENCL_VERSION=120 CL_HPP_MINIMUM_OPENCL_VERSION=110 CL_HPP_CL_1_2_DEFAULT_BUILD CL_HPP_ENABLE_EXCEPTIONS)
+target_compile_definitions(cl-tool PRIVATE CL_HPP_TARGET_OPENCL_VERSION=200 CL_HPP_MINIMUM_OPENCL_VERSION=110 CL_HPP_CL_1_2_DEFAULT_BUILD CL_HPP_ENABLE_EXCEPTIONS)
 target_compile_definitions(cl-tool PRIVATE __CL_ENABLE_EXCEPTIONS CL_VERSION_1_2)
 target_include_directories(cl-tool PRIVATE ${OPENCL_INCLUDE_DIRS} ${OPENCL2_HPP_INCLUDE_DIRS})
-target_compile_options(cl-tool PRIVATE -Wno-ignored-attributes -fvisibility=hidden)
 
-set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS} -Wl,--allow-multiple-definition)
-if (WIN32)
-    target_link_libraries(cl-tool "-Wl,--allow-multiple-definition")
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    target_compile_options(cl-tool PRIVATE -Wno-ignored-attributes -fvisibility=hidden)
+
+    set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS} -Wl,--allow-multiple-definition)
+    if (WIN32)
+	    target_link_libraries(cl-tool "-Wl,--allow-multiple-definition")
+    endif()
 endif()
 
 target_link_libraries(cl-tool ${OPENCL_LIBRARIES} Threads::Threads)

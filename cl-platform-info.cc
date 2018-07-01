@@ -341,9 +341,9 @@ static char const *float_config(cl_device_fp_config config)
 	case CL_FP_FMA:
 	    return "fused multiply-add";
 	case CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT:
-	    return "correctly rounded devide & sqrt";
+	    return "correctly rounded divide & sqrt";
 	case CL_FP_SOFT_FLOAT:
-	    return "software float";
+	    return "soft float";
 	default:
 	    return "-";
     }
@@ -358,14 +358,19 @@ static std::string list_float_support(cl_device_fp_config fp_config, bool single
 
     for (auto config: std::vector<cl_device_fp_config> { CL_FP_DENORM, CL_FP_INF_NAN, CL_FP_ROUND_TO_NEAREST, CL_FP_ROUND_TO_ZERO, CL_FP_ROUND_TO_INF, CL_FP_FMA, CL_FP_SOFT_FLOAT, CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT })
     {
-	if (!str.str().empty())
-		str << ", ";
-
-	if (single_precision || config != CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT)
-	    if (fp_config & config)
-		str << "[+] " << float_config(config);
+	if (config == CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT)
+	    if (single_precision)
+		str << ",\n\t\t\t\t";
 	    else
-		str << "[ ] " << float_config(config);
+		continue;
+	else
+	    if (!str.str().empty())
+		    str << ", ";
+
+	if (fp_config & config)
+	    str << "[+] " << float_config(config);
+	else
+	    str << "[ ] " << float_config(config);
     }
 
     return str.str();
@@ -465,9 +470,9 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
 {
     cout << "\tPlatfrom:               " << cl::Platform(device.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>() << endl;
 #if defined(CL_HPP_PARAM_NAME_INFO_1_0_)
-    cout << "\tDevice ID:              " << std::setiosflags(cout.uppercase) << device.Wrapper<cl_device_id>::get() << endl;
+    cout << "\tDevice ID:              " << std::setiosflags(cout.uppercase) << "0x" << std::setw(sizeof device.Wrapper<cl_device_id>::get() * 2) << device.Wrapper<cl_device_id>::get() << endl;
 #else
-    cout << "\tDevice ID:              " << std::setiosflags(cout.uppercase) << device() << endl;
+    cout << "\tDevice ID:              " << std::setiosflags(cout.uppercase) << "0x" << std::setw(sizeof device() * 2) << device() << endl;
 #endif
     cout << "\tVendor:                 [0x" << std::setw(4) << std::setfill('0') << std::setiosflags(cout.right | cout.uppercase) << std::setbase(16) << device.getInfo<CL_DEVICE_VENDOR_ID>() /* << std::resetiosflags() */ << std::setbase(10) << "] "
 					<< device.getInfo<CL_DEVICE_VENDOR>() << endl;
@@ -545,9 +550,9 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
 extern void show_cl_platform(cl::Platform &platform, bool list_devices)
 {
 #if defined(CL_HPP_PARAM_NAME_INFO_1_0_)
-    cout << "Platform ID:   \t" << platform.Wrapper<cl_platform_id>::get() << endl;
+    cout << "Platform ID:   \t" << "0x" << std::setw(sizeof platform.Wrapper<cl_platform_id>::get() * 2) << platform.Wrapper<cl_platform_id>::get() << endl;
 #else
-    cout << "Platform ID:   \t" << platform() << endl;
+    cout << "Platform ID:   \t" << "0x" << std::setw(sizeof platform() * 2) << platform() << endl;
 #endif
     cout << "Vendor:        \t" << platform.getInfo<CL_PLATFORM_VENDOR>() << endl;
     cout << "Platform name: \t" << platform.getInfo<CL_PLATFORM_NAME>() << endl;
