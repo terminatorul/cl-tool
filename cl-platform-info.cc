@@ -331,13 +331,13 @@ static char const *float_config(cl_device_fp_config config)
 	case CL_FP_DENORM:
 	    return "denorms";
 	case CL_FP_INF_NAN:
-	    return "INF/NaN";
+	    return "Inf/NaN";
 	case CL_FP_ROUND_TO_NEAREST:
 	    return "round to nearest";
 	case CL_FP_ROUND_TO_ZERO:
 	    return "round to zero";
 	case CL_FP_ROUND_TO_INF:
-	    return "round to inf";
+	    return "round to Inf";
 	case CL_FP_FMA:
 	    return "fused multiply-add";
 	case CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT:
@@ -349,23 +349,23 @@ static char const *float_config(cl_device_fp_config config)
     }
 }
 
-static std::string list_float_support(cl_device_fp_config fp_config)
+static std::string list_float_support(cl_device_fp_config fp_config, bool single_precision)
 {
     if (!fp_config)
 	return "-";
 
     std::ostringstream str;
 
-    for (auto config: std::vector<cl_device_fp_config> { CL_FP_DENORM, CL_FP_INF_NAN, CL_FP_ROUND_TO_NEAREST, CL_FP_ROUND_TO_ZERO, CL_FP_ROUND_TO_INF, CL_FP_FMA, CL_FP_SOFT_FLOAT })
+    for (auto config: std::vector<cl_device_fp_config> { CL_FP_DENORM, CL_FP_INF_NAN, CL_FP_ROUND_TO_NEAREST, CL_FP_ROUND_TO_ZERO, CL_FP_ROUND_TO_INF, CL_FP_FMA, CL_FP_SOFT_FLOAT, CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT })
     {
 	if (!str.str().empty())
 		str << ", ";
 
-	if (fp_config & config)
-	    str << "[+] " << float_config(config);
-	else
-	    str << "[ ] " << float_config(config);
-
+	if (single_precision || config != CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT)
+	    if (fp_config & config)
+		str << "[+] " << float_config(config);
+	    else
+		str << "[ ] " << float_config(config);
     }
 
     return str.str();
@@ -478,7 +478,11 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
     cout << "\tOpenCL C version:       " << device.getInfo<CL_DEVICE_OPENCL_C_VERSION>() << endl;
     // cout << "\tSPIR version:           " << device.getInfo<CL_DEVICE_SPIR_VERSIONS>() << endl;
     cout << "\tProfile:                " << device.getInfo<CL_DEVICE_PROFILE>() << endl;
+    cout << "\tDevice available:       " << (device.getInfo<CL_DEVICE_AVAILABLE>() ? "[+]" : "[ ]") << endl;
+    cout << "\tCompiler available:     " << (device.getInfo<CL_DEVICE_COMPILER_AVAILABLE>() ? "[+]" : "[ ]") << endl;
+    // cout << "\tLinker available:       " << (device.getInfo<CL_DEVICE_LINKER_AVAILABLE>() ? "[+]" : "[ ]") << endl;
     cout << "\tMax clock speed:        " << device.getInfo<CL_DEVICE_MAX_CLOCK_FREQUENCY>() << " MHz" << endl;
+    cout << "\tError correction:       " << (device.getInfo<CL_DEVICE_ERROR_CORRECTION_SUPPORT>() ? "[+]" : "[ ]") << endl;
     cout << "\tMemory:                 " << memory_size_str(device.getInfo<CL_DEVICE_GLOBAL_MEM_SIZE>(), false) << ", " << device.getInfo<CL_DEVICE_ADDRESS_BITS>() << "-bit "
 #if (CL_HPP_TARGET_OPENCL_VERSION >= 120)
                                         << (device.getInfo<CL_DEVICE_HOST_UNIFIED_MEMORY>() ? "host memory (" : "device memory (")
@@ -492,8 +496,9 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
     cout << "\tMax const buffer size:  " << memory_size_str(device.getInfo<CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE>(), true) << endl; 
     cout << "\tMax const args:         " << device.getInfo<CL_DEVICE_MAX_CONSTANT_ARGS>() << endl;
     cout << "\tMax argument size:      " << memory_size_str(device.getInfo<CL_DEVICE_MAX_PARAMETER_SIZE>(), true) << endl;
-    cout << "\tBase addres alignament: " << device.getInfo<CL_DEVICE_MEM_BASE_ADDR_ALIGN>() << " bytes" << endl;
-    cout << "\tByte order:             " << (device.getInfo<CL_DEVICE_ENDIAN_LITTLE>() ? "Little endian" : "Big endian or other") << endl;
+    cout << "\tBase addres alignament: " << device.getInfo<CL_DEVICE_MEM_BASE_ADDR_ALIGN>() / 8 << " bytes (" << device.getInfo<CL_DEVICE_MEM_BASE_ADDR_ALIGN>() << " bytes)" << endl;
+    // cout << "\tprintf buffer size:     " << memory_size_str(device.getInfo<CL_DEVICE_PRINTF_BUFFER_SIZE>(), true) << endl;
+    cout << "\tLittle endian:          " << (device.getInfo<CL_DEVICE_ENDIAN_LITTLE>() ? "[+]" : "[ ]") << endl;
     cout << "\tCompute units:          " << device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() << endl;
     cout << "\tCompute units memory:   " << memory_size_str(device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>()) << ' ' << (device.getInfo<CL_DEVICE_LOCAL_MEM_TYPE>() == CL_LOCAL ? "local memory" : "global memory") << endl;
     cout << "\tWork group size:        " << device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>() << endl;
@@ -519,10 +524,10 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
 					 << ", int: " << std::setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT>() << ", long: " << std::setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG>()
 					 << ", half: " << std::setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF>() << ", float: " << std::setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT>()
 					 << ", double: " << std::setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE>() << ")" << endl;
-    cout << "\tHalf float config:      " << (has_extension(device.getInfo<CL_DEVICE_EXTENSIONS>(), "cl_khr_fp16") ?
-						list_float_support(device.getInfo<CL_DEVICE_HALF_FP_CONFIG>()) : "-") << endl;
-    cout << "\tSingle float config:    " << list_float_support(device.getInfo<CL_DEVICE_SINGLE_FP_CONFIG>()) << endl;
-    cout << "\tDouble float config:    " << list_float_support(device.getInfo<CL_DEVICE_DOUBLE_FP_CONFIG>()) << endl;
+    //cout << "\tHalf float config:      " << (has_extension(device.getInfo<CL_DEVICE_EXTENSIONS>(), "cl_khr_fp16") ?
+	//					list_float_support(device.getInfo<CL_DEVICE_HALF_FP_CONFIG>()) : "-") << endl;
+    cout << "\tSingle float config:    " << list_float_support(device.getInfo<CL_DEVICE_SINGLE_FP_CONFIG>(), true) << endl;
+    cout << "\tDouble float config:    " << list_float_support(device.getInfo<CL_DEVICE_DOUBLE_FP_CONFIG>(), false) << endl;
     cout << "\tImage support:          " << (device.getInfo<CL_DEVICE_IMAGE_SUPPORT>() ? "Yes" : "No") << endl;
     // cout << "\t1D image size:          " << device.getInfo<CL_DEVICE_IMAGE_MAX_BUFFER_SIZE>() << endl;
     cout << "\t2D image size:          " << device.getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>() << " x " << device.getInfo<CL_DEVICE_IMAGE2D_MAX_HEIGHT>() << endl;
@@ -564,7 +569,7 @@ extern void show_cl_platform(cl::Platform &platform, bool list_devices)
 	    ext_list.push_back(it->str());
     }
 
-    cout << "Extensions:    \t" << show_extensions_list(ext_list, "\t\t");
+    cout << "Extensions:    \t" << show_extensions_list(ext_list, "\t\t") << endl;
 
     std::vector<cl::Device> devices;
     platform.getDevices(CL_DEVICE_TYPE_ALL, &devices);
