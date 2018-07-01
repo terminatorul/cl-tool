@@ -255,7 +255,7 @@ try
 
 	cout << endl;
 
-	cl_ulong const lines = 2048, cols = 2048, internal_size = 2048;
+	cl_ulong const lines = 1024, cols = 1024, internal_size = 1024;
 
 	cl::Buffer
 	    m(context, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY /* CL_MEM_HOST_NO_ACCESS */, sizeof(cl_double) * lines * internal_size),
