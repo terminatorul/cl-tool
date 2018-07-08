@@ -11,165 +11,26 @@
 #include <iomanip>
 #include <sstream>
 
+#if defined(_WINDOWS)
+#include <Windows.h>
+#if !defined(ENABLE_VIRTUAL_TERMINAL_PROCESSING)
+# define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+#endif
+#endif
+
 #if defined(__APPLE__) || defined(__MACOSX__)
 # include <OpenCL/cl2.hpp>
 #else
 # include <CL/cl2.hpp>
 #endif
 
+#include "parse-cmd-line.hh"
 #include "cl-platform-info.hh"
 #include "cl-matrix-mult.hh"
 
 using std::cerr;
 using std::cout;
 using std::endl;
-
-struct args
-{
-    bool list_platforms = false;
-    bool list_platform_devices = false;
-    bool list_all_devices = false;
-    bool probe = false;
-
-    std::string probe_device;
-    std::string select_platform_name;
-    std::vector<std::string> select_devices;
-};
-
-class SyntaxError: public std::runtime_error
-{
-    public:
-	SyntaxError();
-	SyntaxError(char const *msg);
-	SyntaxError(std::string const &msg);
-
-	static void ShowSyntax(char const *cmd_name);
-};
-
-inline SyntaxError::SyntaxError()
-    : runtime_error(std::string())
-{
-}
-
-inline SyntaxError::SyntaxError(char const *msg)
-    : runtime_error(msg)
-{
-}
-
-inline SyntaxError::SyntaxError(std::string const &msg)
-    : runtime_error(msg)
-{
-}
-
-void SyntaxError::ShowSyntax(char const *cmd_name)
-{
-    cerr << "Syntax:" << endl;
-    cerr << "\t" << cmd_name << " [--probe]" << endl;
-    cerr << "\t" << cmd_name << " [--probe] --platforms [--devices]" << endl;
-    cerr << "\t" << cmd_name << " [--probe] --platform \"OpenCL Platform Name\" [--devices]" << endl;
-    cerr << "\t" << cmd_name << " [--probe] --platform \"OpenCL Platform Name\" --device \"OpenCL Device Name\"" << endl;
-    cerr << "\t" << cmd_name << " [--probe] --platform \"OpenCL Platform Name\" --all-devices" << endl;
-    cerr << endl;
-    cerr << cmd_name << " will by default attempt to probe the default OpenCL device(s) using a trivial matrix" << endl;
-    cerr << "multiplication and report the number of floating-point operations per second in GFLOPS." << endl;
-    cerr << endl;
-    cerr << "Options:" << endl;
-    cerr << "\t--probe" << endl;
-    cerr << "\t     Attempts to run a matrix multiplication function on the device(s) using single-precision" << endl;
-    cerr << "\t     floating-point operations and report the operation speed in GFLOPS. With no other options," << endl;
-    cerr << "\t     this is the default operation, run on an implicitly-selected set of default compute devices" << endl;
-    cerr << "\t     chosen by the OpenCL system." << endl;
-    cerr << endl;
-    cerr << "\t--platforms [--devices]" << endl;
-    cerr << "\t     List available OpenCL platforms on the system." << endl;
-    cerr << "\t     With --devices also report details on available OpenCL devices in each platform." << endl;
-    cerr << endl;
-    cerr << "\t--platform \"OpenCL Platform Name\" [--devices]" << endl;
-    cerr << "\t     List selected OpenCL platform." << endl;
-    cerr << "\t     With --devices   report details on available OpenCL devices in selected platform." << endl;
-    cerr << endl;
-    cerr << "\t--platform \"OpenCL Platform Name\" --device \"OpenCL Device Name\" [--probe] " << endl;
-    cerr << "\t     not currently used." << endl;
-    cerr << endl;
-    cerr << "\t--platform \"OpenCL Platform Name\" --all-devices" << endl;
-    cerr << "\t    Show details on OpenCL compute device(s) in the given platform" << endl;
-    cerr << endl;
-    cerr << "See the OpenCL specification at https:://www.khronos.org/registry/OpenCL/ for more information" << endl;
-    cerr << "about the platform and device details reported by " << cmd_name << '.' << endl;
-    cerr << endl;
-}
-
-void parse_args(char const *argv[], struct args &args)
-{
-    while (argv[0])
-    {
-	char const *arg = argv[0];
-
-	if (!strncmp("-h", arg, sizeof "-h") || !strncmp("--help", arg, sizeof "--help") || !strncmp("--usage", arg, sizeof "--usage"))
-	    throw SyntaxError();
-
-	if (!strncmp("--platforms", arg, sizeof "--platforms"))
-	{
-	    args.list_platforms = true;
-	    argv++;
-	    continue;
-	}
-
-	if (!strncmp("--all-devices", arg, sizeof "--all-devices"))
-	{
-	    args.list_all_devices = true;
-	    argv++;
-	    continue;
-	}
-
-	if (!strncmp("--devices", arg, sizeof "--devices"))
-	{
-	    args.list_platform_devices = true;
-	    argv++;
-	    continue;
-	}
-
-	if (!strncmp("--platform", arg, sizeof "--platform"))
-	{
-	    argv++;
-
-	    if (argv[0])
-	    {
-		args.select_platform_name = argv[0];
-		argv++;
-		continue;
-	    }
-	    
-	    throw std::runtime_error("Command line missing platform name");
-	}
-
-	if (!strncmp("--probe", arg, sizeof "--probe"))
-	{
-	    args.probe = true;
-	    argv++;
-	    continue;
-	}
-
-	if (!strncmp("--device", arg, sizeof "--device"))
-	{
-	    argv++;
-
-	    if (argv[0])
-	    {
-		args.select_devices.push_back(argv[0]);
-		argv++;
-		continue;
-	    }
-
-	    throw SyntaxError("Command line option " + std::string(arg) + " missing device name argument.");
-	}
-
-	throw SyntaxError("Unknown command line option " + std::string(arg));
-    }
-
-    if (!(args.list_platforms || args.list_platform_devices || args.list_all_devices || args.probe))
-	args.probe = true;
-}
 
 void list_context_devices(cl::Context &context)
 {
@@ -184,123 +45,196 @@ void CL_CALLBACK context_error_notification(char const *error_info, void const *
     cerr << "Context error: " << error_info << endl;
 }
 
-int main(int argc, char const *argv[])
-try
+void select_matching_platforms(cl::Platform &clPlatform, std::vector<PlatformDeviceSet> &userSelection, std::vector<PlatformDeviceSet *> &matchSelection)
 {
-    struct args args;
+    std::string platform_name = trim_name(clPlatform.getInfo<CL_PLATFORM_NAME>()), vendor_name = trim_name(clPlatform.getInfo<CL_PLATFORM_VENDOR>());
 
-    parse_args(argv + 1, args);
+    matchSelection.clear();
 
-    if (args.list_platforms)
+    for (auto &platformDeviceSet: userSelection) 
+	if (platform_name.find(platformDeviceSet.platformSelector) != std::string::npos || vendor_name.find(platformDeviceSet.platformSelector) != std::string::npos)
+	    matchSelection.push_back(&platformDeviceSet);
+}
+
+bool show_cl_platforms(CmdLineArgs::SelectionSet &platformSelection)
+{
+    bool result = true;
+    std::vector<cl::Platform> clPlatforms;
+    std::vector<PlatformDeviceSet *> matchSelection;
+
+    cl::Platform::get(&clPlatforms);
+
+    if (platformSelection.all_platforms)
     {
-	std::vector<cl::Platform> clPlatforms;
-
-	cl::Platform::get(&clPlatforms);
-
-	if (!clPlatforms.empty())
+	for (cl::Platform &clPlatform: clPlatforms)
 	{
-	    for (auto &platform: clPlatforms)
-		show_cl_platform(platform, args.list_platform_devices);
+	    select_matching_platforms(clPlatform, platformSelection.platforms, matchSelection);
+	    show_cl_platform(clPlatform, platformSelection.all_devices, matchSelection);
 	}
 
 	cout << "OpenCL platforms: " << clPlatforms.size() << endl;
     }
-
-    cl_platform_id platform;
-    std::array<cl_context_properties, 3> context_props = { 0, 0, 0 };
-
-    if (!args.select_platform_name.empty())
+    else
     {
-	std::vector<cl::Platform> clPlatforms;
-	bool platform_found = false;
+	std::vector<bool> listedPlatforms(clPlatforms.size());
 
-	cl::Platform::get(&clPlatforms);
-
-	for (auto it = clPlatforms.cbegin(); !platform_found && it != clPlatforms.cend(); it++)
-	    if (!strncmp(it->getInfo<CL_PLATFORM_NAME>().data(), args.select_platform_name.data(),
-			std::min(it->getInfo<CL_PLATFORM_NAME>().size(), args.select_platform_name.length())))
-	    {
-		platform = it->Wrapper<cl_platform_id>::get();
-		platform_found = true;
-	    }
-
-	if (!platform_found)
-	    for (auto it = clPlatforms.cbegin(); !platform_found && it != clPlatforms.cend(); it++)
-		if(!strncmp(it->getInfo<CL_PLATFORM_VENDOR>().data(), args.select_platform_name.data(),
-			std::min(it->getInfo<CL_PLATFORM_VENDOR>().size(), args.select_platform_name.length())))
+	for (PlatformDeviceSet &platformDeviceSet: platformSelection.platforms)
+	{
+	    for (size_t i = 0; i < clPlatforms.size(); i++)
+		if (!listedPlatforms[i])
 		{
-		    platform = it->Wrapper<cl_platform_id>::get();
-		    platform_found = true;
+		    std::string
+			platform_name = trim_name(clPlatforms[i].getInfo<CL_PLATFORM_NAME>()),
+			vendor_name = trim_name(clPlatforms[i].getInfo<CL_PLATFORM_VENDOR>());
+
+		    if (platform_name.find(platformDeviceSet.platformSelector) != std::string::npos
+			    ||
+			vendor_name.find(platformDeviceSet.platformSelector) != std::string::npos)
+		    {
+			select_matching_platforms(clPlatforms[i], platformSelection.platforms, matchSelection);
+			show_cl_platform(clPlatforms[i], false, matchSelection);
+			listedPlatforms[i] = true;
+		    }
+		}
+	}
+
+	cout << "Selected OpenCL platforms: " << std::count(listedPlatforms.cbegin(), listedPlatforms.cend(), true) << endl; 
+    }
+
+    for (auto const &platformDeviceSet: platformSelection.platforms)
+	if (!platformDeviceSet.platformUsage)
+	{
+	    cerr << endl;
+	    cerr << "No matching OpenCL platform for \"" << platformDeviceSet.platformSelector << "\"." << endl;
+	    result = false;
+	}
+	else
+	    for (size_t i = 0; i < platformDeviceSet.devices.size(); i++)
+		if (!platformDeviceSet.deviceUsage[i])
+		{
+		    cerr << endl;
+		    cerr << "No matching OpenCL device for \"" << platformDeviceSet.devices[i] <<
+			"\" in platforms for \"" << platformDeviceSet.platformSelector << "\"." << endl;
+		    result = false;
 		}
 
-	if (!platform_found)
-	    throw std::runtime_error("No such platform: " + args.select_platform_name);
+    return result;
+}
 
-	context_props[0] = CL_CONTEXT_PLATFORM;
-	context_props[1] = static_cast<cl_context_properties>(reinterpret_cast<intptr_t>(platform));
-	context_props[2] = static_cast<cl_context_properties>(0);
-    }
+bool probe_cl_platforms(CmdLineArgs::SelectionSet const &platforms)
+{
+    return false;
+}
 
-    cl::Context context(CL_DEVICE_TYPE_ALL, context_props[0] ? context_props.data() : nullptr, context_error_notification);
+int main(int argc, char const *argv[])
+try
+{
+    CmdLineArgs args;
+    bool result = true;
 
-    if (args.list_all_devices)
-	list_context_devices(context);
+    args.parse(argv + 1);
 
-    if (args.probe)
-    {
-	cout << "Probing device" << (context.getInfo<CL_CONTEXT_DEVICES>().size() > 1 ? "s" : "") << ": \n";
+    if (args.list.all_platforms || !args.list.platforms.empty())
+	result = show_cl_platforms(args.list);
 
-	for (auto const &device: context.getInfo<CL_CONTEXT_DEVICES>())
-	    cout << '\t' << device.getInfo<CL_DEVICE_NAME>() << endl;
+    if (args.probe.all_platforms || !args.probe.platforms.empty())
+	result = result && probe_cl_platforms(args.list);
 
-	cout << endl;
+    // cl_platform_id platform;
+    // std::array<cl_context_properties, 3> context_props = { 0, 0, 0 };
 
-	cl_ulong const lines = 1024, cols = 1024, internal_size = 1024;
+    // if (!args.select_platform_name.empty())
+    // {
+    //     std::vector<cl::Platform> clPlatforms;
+    //     bool platform_found = false;
 
-	cl::Buffer
-	    m(context, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY /* CL_MEM_HOST_NO_ACCESS */, sizeof(cl_double) * lines * internal_size),
-	    n(context, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY /* CL_MEM_HOST_NO_ACCESS */, sizeof(cl_double) * internal_size * cols),
-	    result(context, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, sizeof(cl_double)* lines * cols);
+    //     cl::Platform::get(&clPlatforms);
 
-	Matrix mat(context);
-	std::vector<cl_float> sub_buffer;
+    //     for (auto it = clPlatforms.cbegin(); !platform_found && it != clPlatforms.cend(); it++)
+    //         if (!strncmp(it->getInfo<CL_PLATFORM_NAME>().data(), args.select_platform_name.data(),
+    //     		std::min(it->getInfo<CL_PLATFORM_NAME>().size(), args.select_platform_name.length())))
+    //         {
+    //     	platform = it->Wrapper<cl_platform_id>::get();
+    //     	platform_found = true;
+    //         }
 
-	mat.random_fill<cl_float>(m, lines, internal_size, -100.0f, 100.0f);
-	mat.random_fill<cl_float>(n, internal_size, cols, -100.0f, 100.0f);
-	//mat.zero_fill<cl_float>(result, lines, cols);
-	mat.random_fill<cl_float>(result, internal_size, cols, 0.0f, 0.0001f);
-	mat.waitForCompletion();
+    //     if (!platform_found)
+    //         for (auto it = clPlatforms.cbegin(); !platform_found && it != clPlatforms.cend(); it++)
+    //     	if(!strncmp(it->getInfo<CL_PLATFORM_VENDOR>().data(), args.select_platform_name.data(),
+    //     		std::min(it->getInfo<CL_PLATFORM_VENDOR>().size(), args.select_platform_name.length())))
+    //     	{
+    //     	    platform = it->Wrapper<cl_platform_id>::get();
+    //     	    platform_found = true;
+    //     	}
+
+    //     if (!platform_found)
+    //         throw std::runtime_error("No such platform: " + args.select_platform_name);
+
+    //     context_props[0] = CL_CONTEXT_PLATFORM;
+    //     context_props[1] = static_cast<cl_context_properties>(reinterpret_cast<intptr_t>(platform));
+    //     context_props[2] = static_cast<cl_context_properties>(0);
+    // }
+
+    // cl::Context context(CL_DEVICE_TYPE_DEFAULT, context_props[0] ? context_props.data() : nullptr, context_error_notification);
+
+    // if (args.list_all_devices)
+    //     list_context_devices(context);
+
+    // if (args.probe)
+    // {
+    //     cout << "Probing device" << (context.getInfo<CL_CONTEXT_DEVICES>().size() > 1 ? "s" : "") << ": \n";
+
+    //     for (auto const &device: context.getInfo<CL_CONTEXT_DEVICES>())
+    //         cout << '\t' << device.getInfo<CL_DEVICE_NAME>() << endl;
+
+    //     cout << endl;
+
+    //     cl_ulong const lines = 1024, cols = 1024, internal_size = 1024;
+
+    //     cl::Buffer
+    //         m(context, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY /* CL_MEM_HOST_NO_ACCESS */, sizeof(cl_double) * lines * internal_size),
+    //         n(context, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY /* CL_MEM_HOST_NO_ACCESS */, sizeof(cl_double) * internal_size * cols),
+    //         result(context, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, sizeof(cl_double)* lines * cols);
+
+    //     Matrix mat(context);
+    //     std::vector<cl_float> sub_buffer;
+
+    //     mat.random_fill<cl_float>(m, lines, internal_size, -100.0f, 100.0f);
+    //     mat.random_fill<cl_float>(n, internal_size, cols, -100.0f, 100.0f);
+    //     //mat.zero_fill<cl_float>(result, lines, cols);
+    //     mat.random_fill<cl_float>(result, internal_size, cols, 0.0f, 0.0001f);
+    //     mat.waitForCompletion();
 
 
-	std::time_t startTime, endTime;
-	time(&startTime);
-	mat.multiply<cl_float>(m, lines, internal_size, n, internal_size, cols, result, lines, cols);
-	mat.waitForCompletion();
-	time(&endTime);
+    //     std::time_t startTime, endTime;
+    //     time(&startTime);
+    //     mat.multiply<cl_float>(m, lines, internal_size, n, internal_size, cols, result, lines, cols);
+    //     mat.waitForCompletion();
+    //     time(&endTime);
 
-	cout << std::setprecision(5) << std::fixed << (static_cast<double>(lines) * internal_size * cols * 2 / 1000/1000/1000) / static_cast<double>(endTime - startTime) << " GFLOPS" << endl;
+    //     cout << std::setprecision(5) << std::fixed << (static_cast<double>(lines) * internal_size * cols * 2 / 1000/1000/1000) / static_cast<double>(endTime - startTime) << " GFLOPS" << endl;
 
 
-	// mat.readBufferRectAsync(result, lines, cols, 852, 718, 20, 20, sub_buffer);
-	// mat.waitForCompletion();
+    //     // mat.readBufferRectAsync(result, lines, cols, 852, 718, 20, 20, sub_buffer);
+    //     // mat.waitForCompletion();
 
-	mat.readBufferRect(result, lines, cols, 852, 718, 20, 20, sub_buffer);
+    //     mat.readBufferRect(result, lines, cols, 852, 718, 20, 20, sub_buffer);
 
-	cout << "Sample sub-matrix:\n";
-	for (unsigned i = 0; i < 10; i++)
-	{
-	    for (unsigned j = 0; j < 10; j++)
-		cout << std::setw(14) << std::setprecision(5) << std::fixed << std::setfill(' ') << std::setiosflags(cout.right) << std::showpos << sub_buffer[i * 10 + j] << ' ';
+    //     cout << "Sample sub-matrix:\n";
+    //     for (unsigned i = 0; i < 10; i++)
+    //     {
+    //         for (unsigned j = 0; j < 10; j++)
+    //     	cout << std::setw(14) << std::setprecision(5) << std::fixed << std::setfill(' ') << std::setiosflags(cout.right) << std::showpos << sub_buffer[i * 10 + j] << ' ';
 
-	    cout << endl;
-	}
-    }
+    //         cout << endl;
+    //     }
+    // }
 	
-    return EXIT_SUCCESS;
+    return result ? EXIT_SUCCESS : EXIT_FAILURE ;
 }
 catch(SyntaxError const &err)
 {
-    err.ShowSyntax(argv[0]);
+    err.ShowSyntax("cl-tool");
 
     if (err.what() && *err.what())
     {

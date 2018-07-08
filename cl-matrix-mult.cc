@@ -34,6 +34,8 @@ char const *float_type_name(FloatType floatType)
 	case FloatType::Quad:
 	    return "quad";
     }
+
+    return "-";
 }
 
 static cl::Program &build_program(cl::Program &program, FloatType floatType)

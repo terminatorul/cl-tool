@@ -179,7 +179,7 @@ static std::string list_product(std::vector<std::size_t> const &sizes)
     str << *it++;
 
     while (it != sizes.cend())
-	str << " x " << *it++;
+	str << "x" << *it++;
 
     return str.str();
 }
@@ -234,7 +234,7 @@ static char const *affinity_domain(cl_device_affinity_domain affinity_domain)
 	case CL_DEVICE_AFFINITY_DOMAIN_L1_CACHE:
 	    return "L1 cache";
 	case CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE:
-	    return "next partitionable";
+	    return "Next Partitionable";
 	default:
 	    return "-";
     }
@@ -376,13 +376,13 @@ static std::string list_float_support(cl_device_fp_config fp_config, bool single
     return str.str();
 }
 
-static std::string memory_size_str(size_t memoryCapacity, bool showKiBytes = true)
+static std::string memory_size_str(cl_ulong memoryCapacity, bool showKiBytes = true)
 {
     std::ostringstream memoryString;
 
-    size_t kbytes = memoryCapacity / 1024;
-    size_t mbytes = kbytes / 1024;
-    size_t gbytes = mbytes / 1024;
+    cl_ulong kbytes = memoryCapacity / 1024;
+    cl_ulong mbytes = kbytes / 1024;
+    cl_ulong gbytes = mbytes / 1024;
 
     kbytes %= 1024;
     mbytes %= 1024;
@@ -466,17 +466,23 @@ static std::string show_extensions_list(std::list<std::string> &&extensions, cha
     return show_extensions_list(extensions, indent);
 }
 
+extern std::string trim_name(std::string name)
+{
+    while (!name.empty() && (*name.rbegin() == '\0' || *name.rbegin() == ' ' || *name.rbegin() == '\t'))
+	name.pop_back();
+
+    while (!name.empty() && (*name.begin() == '\0' || *name.begin() == ' ' || *name.rbegin() == '\t'))
+	name.erase(name.begin());
+
+    return name;
+}
+
 extern void show_cl_device(cl::Device &device, bool showPlatform)
 {
-    cout << "\tPlatfrom:               " << cl::Platform(device.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>() << endl;
-#if defined(CL_HPP_PARAM_NAME_INFO_1_0_)
-    cout << "\tDevice ID:              " << std::setiosflags(cout.uppercase) << "0x" << std::setw(sizeof device.Wrapper<cl_device_id>::get() * 2) << device.Wrapper<cl_device_id>::get() << endl;
-#else
-    cout << "\tDevice ID:              " << std::setiosflags(cout.uppercase) << "0x" << std::setw(sizeof device() * 2) << device() << endl;
-#endif
+    cout << "\tDevice:                 " << trim_name(device.getInfo<CL_DEVICE_NAME>()) << endl;
+    cout << "\tPlatform:               " << trim_name(cl::Platform(device.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>()) << endl;
     cout << "\tVendor:                 [0x" << std::setw(4) << std::setfill('0') << std::setiosflags(cout.right | cout.uppercase) << std::setbase(16) << device.getInfo<CL_DEVICE_VENDOR_ID>() /* << std::resetiosflags() */ << std::setbase(10) << "] "
 					<< device.getInfo<CL_DEVICE_VENDOR>() << endl;
-    cout << "\tDevice name:            " << device.getInfo<CL_DEVICE_NAME>() << endl;
     cout << "\tDriver version:         " << device.getInfo<CL_DRIVER_VERSION>() << endl;
     cout << "\tType                    " << list_cl_device_type(device.getInfo<CL_DEVICE_TYPE>()) << endl;
     cout << "\tOpencCL version:        " << device.getInfo<CL_DEVICE_VERSION>() << endl;
@@ -501,7 +507,7 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
     cout << "\tMax const buffer size:  " << memory_size_str(device.getInfo<CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE>(), true) << endl; 
     cout << "\tMax const args:         " << device.getInfo<CL_DEVICE_MAX_CONSTANT_ARGS>() << endl;
     cout << "\tMax argument size:      " << memory_size_str(device.getInfo<CL_DEVICE_MAX_PARAMETER_SIZE>(), true) << endl;
-    cout << "\tBase addres alignament: " << device.getInfo<CL_DEVICE_MEM_BASE_ADDR_ALIGN>() / 8 << " bytes (" << device.getInfo<CL_DEVICE_MEM_BASE_ADDR_ALIGN>() << " bytes)" << endl;
+    cout << "\tBase addres alignament: " << device.getInfo<CL_DEVICE_MEM_BASE_ADDR_ALIGN>() / 8 << " bytes (" << device.getInfo<CL_DEVICE_MEM_BASE_ADDR_ALIGN>() << " bits)" << endl;
     // cout << "\tprintf buffer size:     " << memory_size_str(device.getInfo<CL_DEVICE_PRINTF_BUFFER_SIZE>(), true) << endl;
     cout << "\tLittle endian:          " << (device.getInfo<CL_DEVICE_ENDIAN_LITTLE>() ? "[+]" : "[ ]") << endl;
     cout << "\tCompute units:          " << device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() << endl;
@@ -531,12 +537,12 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
 					 << ", double: " << std::setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE>() << ")" << endl;
     //cout << "\tHalf float config:      " << (has_extension(device.getInfo<CL_DEVICE_EXTENSIONS>(), "cl_khr_fp16") ?
 	//					list_float_support(device.getInfo<CL_DEVICE_HALF_FP_CONFIG>()) : "-") << endl;
-    cout << "\tSingle float config:    " << list_float_support(device.getInfo<CL_DEVICE_SINGLE_FP_CONFIG>(), true) << endl;
     cout << "\tDouble float config:    " << list_float_support(device.getInfo<CL_DEVICE_DOUBLE_FP_CONFIG>(), false) << endl;
+    cout << "\tSingle float config:    " << list_float_support(device.getInfo<CL_DEVICE_SINGLE_FP_CONFIG>(), true) << endl;
     cout << "\tImage support:          " << (device.getInfo<CL_DEVICE_IMAGE_SUPPORT>() ? "Yes" : "No") << endl;
     // cout << "\t1D image size:          " << device.getInfo<CL_DEVICE_IMAGE_MAX_BUFFER_SIZE>() << endl;
-    cout << "\t2D image size:          " << device.getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>() << " x " << device.getInfo<CL_DEVICE_IMAGE2D_MAX_HEIGHT>() << endl;
-    cout << "\t3D image size:          " << device.getInfo<CL_DEVICE_IMAGE3D_MAX_WIDTH>() << " x " << device.getInfo<CL_DEVICE_IMAGE3D_MAX_HEIGHT>() << " x " << device.getInfo<CL_DEVICE_IMAGE3D_MAX_DEPTH>() << endl;
+    cout << "\tMax 2D image sizes:     " << device.getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>() << "x" << device.getInfo<CL_DEVICE_IMAGE2D_MAX_HEIGHT>() << endl;
+    cout << "\tMax 3D image size:      " << device.getInfo<CL_DEVICE_IMAGE3D_MAX_WIDTH>() << "x" << device.getInfo<CL_DEVICE_IMAGE3D_MAX_HEIGHT>() << "x" << device.getInfo<CL_DEVICE_IMAGE3D_MAX_DEPTH>() << endl;
     // cout << "\timage array size:       " << device.getInfo<CL_DEVICE_IMAGE_MAX_ARRAY_SIZE>() << endl;
     cout << "\tMax samplers count:     " << device.getInfo<CL_DEVICE_MAX_SAMPLERS>() << endl;
     cout << "\tTimer resolution:       " << device.getInfo<CL_DEVICE_PROFILING_TIMER_RESOLUTION>() << " nanoseconds" << endl;
@@ -547,15 +553,12 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
     cout << endl;
 }
 
-extern void show_cl_platform(cl::Platform &platform, bool list_devices)
+extern void show_cl_platform(cl::Platform &platform, bool all_devices, std::vector<PlatformDeviceSet *> &device_list)
 {
-#if defined(CL_HPP_PARAM_NAME_INFO_1_0_)
-    cout << "Platform ID:   \t" << "0x" << std::setw(sizeof platform.Wrapper<cl_platform_id>::get() * 2) << platform.Wrapper<cl_platform_id>::get() << endl;
-#else
-    cout << "Platform ID:   \t" << "0x" << std::setw(sizeof platform() * 2) << platform() << endl;
-#endif
-    cout << "Vendor:        \t" << platform.getInfo<CL_PLATFORM_VENDOR>() << endl;
-    cout << "Platform name: \t" << platform.getInfo<CL_PLATFORM_NAME>() << endl;
+    bool result = true;
+
+    cout << "Platform:      \t" << trim_name(platform.getInfo<CL_PLATFORM_NAME>()) << endl;
+    cout << "Vendor:        \t" << trim_name(platform.getInfo<CL_PLATFORM_VENDOR>()) << endl;
     cout << "Profile:       \t" << platform.getInfo<CL_PLATFORM_PROFILE>() << endl;
     cout << "Version:       \t" << platform.getInfo<CL_PLATFORM_VERSION>() << endl;
     cout << "ICD suffix:    \t" << platform.getInfo<CL_PLATFORM_ICD_SUFFIX_KHR>() << endl;
@@ -576,14 +579,53 @@ extern void show_cl_platform(cl::Platform &platform, bool list_devices)
 
     cout << "Extensions:    \t" << show_extensions_list(ext_list, "\t\t") << endl;
 
-    std::vector<cl::Device> devices;
-    platform.getDevices(CL_DEVICE_TYPE_ALL, &devices);
-    cout << "Devices:       \t" << devices.size() << endl;
-
-    if (list_devices)
+    std::vector<cl::Device> clDevices;
+    platform.getDevices(CL_DEVICE_TYPE_ALL, &clDevices);
+    cout << "Devices:       \t" << clDevices.size();
+    if (!clDevices.empty())
     {
-	for (auto &device: devices)
-	    show_cl_device(device);
+	cout << " [" << trim_name(clDevices[0].getInfo<CL_DEVICE_NAME>()) << "]";
+
+	for (size_t i = 1; i < clDevices.size(); i++)
+	    cout << endl << "               \t  [" << trim_name(clDevices[i].getInfo<CL_DEVICE_NAME>()) << "]";
+    }
+    cout << endl;
+
+    for (auto &platformDeviceSet: device_list)
+	platformDeviceSet->platformUsage = true;
+
+    all_devices = all_devices || std::any_of(device_list.cbegin(), device_list.cend(), [](PlatformDeviceSet *deviceSet) -> bool { return deviceSet->allDevices; });
+
+    if (all_devices)
+	for (auto &clDevice: clDevices)
+	{
+	    std::string device_name = trim_name(clDevice.getInfo<CL_DEVICE_NAME>());
+
+	    show_cl_device(clDevice);
+
+	    for (auto &deviceSet: device_list)
+		for (size_t i = 0; i < deviceSet->devices.size(); i++)
+		    if (device_name.find(deviceSet->devices[i]) != std::string::npos)
+			deviceSet->deviceUsage[i] = true;
+	}
+    else
+    {
+	std::vector<bool> listed_devices(clDevices.size());
+
+	for (auto &platformDeviceSet: device_list)
+	    for (size_t i = 0; i < platformDeviceSet->devices.size(); i++)
+		for (size_t cl_device = 0; cl_device < clDevices.size(); cl_device++)
+		    if (!listed_devices[cl_device])
+		    {
+			std::string device_name = trim_name(clDevices[cl_device].getInfo<CL_DEVICE_NAME>());
+
+			if (device_name.find(platformDeviceSet->devices[i]) != std::string::npos)
+			{
+			    show_cl_device(clDevices[cl_device]);
+			    listed_devices[cl_device] = true;
+			    platformDeviceSet->deviceUsage[i] = true;
+			}
+		    }
     }
 
     cout << endl;

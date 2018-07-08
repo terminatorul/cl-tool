@@ -1,3 +1,6 @@
+#ifndef CL_MATRIX_MULT_HH
+#define CL_MATRIX_MULT_HH
+
 #include <cstddef>
 #include <functional>
 #include <vector>
@@ -33,10 +36,10 @@ class Matrix
 	~Matrix() = default;
 
 	template<typename FloatType>
-	    void random_fill(cl::Buffer &outputBuffer, cl_ulong M, cl_ulong N, FloatType min_value, FloatType max_value);
+	    void random_fill(cl::Buffer &outputBuffer, cl::size_type M, cl::size_type N, FloatType min_value, FloatType max_value);
 
 	template<typename FloatType>
-	    void zero_fill(cl::Buffer &outputBuffer, cl_ulong M, cl_ulong N);
+	    void zero_fill(cl::Buffer &outputBuffer, cl::size_type M, cl::size_type N);
 
 	template<typename FloatType>
 	    void multiply(cl::Buffer const &m, cl::size_type m_lines, cl::size_type m_cols, cl::Buffer const &n, cl::size_type n_lines, cl::size_type n_cols, cl::Buffer &result, cl::size_type lines, cl::size_type cols);
@@ -51,13 +54,13 @@ class Matrix
 };
 
 template<>
-    inline void Matrix::random_fill<cl_float>(cl::Buffer &outputBuffer, cl_ulong M, cl_ulong N, cl_float min_value, cl_float max_value)
+    inline void Matrix::random_fill<cl_float>(cl::Buffer &outputBuffer, cl::size_type M, cl::size_type N, cl_float min_value, cl_float max_value)
 {
     waitEvents.push_back(random_fill_float_block(cl::EnqueueArgs(cmdQueue, cl::NDRange(M, N), cl::NDRange(16, 16)), outputBuffer, M, N, min_value, max_value));
 };
 
 template<>
-    inline void Matrix::zero_fill<cl_float>(cl::Buffer &outputBuffer, cl_ulong M, cl_ulong N)
+    inline void Matrix::zero_fill<cl_float>(cl::Buffer &outputBuffer, cl::size_type M, cl::size_type N)
 {
     waitEvents.emplace_back();
     cmdQueue.enqueueFillBuffer<cl_float>(outputBuffer, cl_float(0.0f), 0, M * N * sizeof(cl_float), nullptr, &(*waitEvents.rbegin()));
@@ -109,3 +112,5 @@ template<>
 {
     mulEvents.push_back(multiply_float_matrix_block(cl::EnqueueArgs(cmdQueue, waitEvents, cl::NDRange(lines, cols), cl::NDRange(16, 16)),  m, m_lines, m_cols, n, n_lines, n_cols, result, lines, cols));
 }
+
+#endif // CL_MATRIX_MULT_HH
