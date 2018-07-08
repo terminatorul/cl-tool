@@ -1,5 +1,6 @@
 #include <cstddef>
 #include <string>
+#include <array>
 #include <vector>
 #include <list>
 #include <algorithm>
@@ -153,16 +154,16 @@ template<typename Type>
     std::ostringstream result_str;
 
     if (type_mask & CL_DEVICE_TYPE_GPU)
-	result_str << "GPU ";
+	result_str << "GPU";
 
     if (type_mask & CL_DEVICE_TYPE_CPU)
-	result_str << "CPU ";
+	result_str << "CPU";
 
     if (type_mask & CL_DEVICE_TYPE_ACCELERATOR)
-	result_str << "ACCELERATOR ";
+	result_str << "ACCELERATOR";
 
     if (type_mask & CL_DEVICE_TYPE_DEFAULT)
-	result_str << "DEFAULT ";
+	result_str << " DEFAULT ";
 
     if (type_mask & CL_DEVICE_TYPE_CUSTOM)
 	result_str << "CUSTOM";
@@ -542,7 +543,7 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
     cout << "\tImage support:          " << (device.getInfo<CL_DEVICE_IMAGE_SUPPORT>() ? "Yes" : "No") << endl;
     // cout << "\t1D image size:          " << device.getInfo<CL_DEVICE_IMAGE_MAX_BUFFER_SIZE>() << endl;
     cout << "\tMax 2D image sizes:     " << device.getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>() << "x" << device.getInfo<CL_DEVICE_IMAGE2D_MAX_HEIGHT>() << endl;
-    cout << "\tMax 3D image size:      " << device.getInfo<CL_DEVICE_IMAGE3D_MAX_WIDTH>() << "x" << device.getInfo<CL_DEVICE_IMAGE3D_MAX_HEIGHT>() << "x" << device.getInfo<CL_DEVICE_IMAGE3D_MAX_DEPTH>() << endl;
+    cout << "\tMax 3D image sizes:     " << device.getInfo<CL_DEVICE_IMAGE3D_MAX_WIDTH>() << "x" << device.getInfo<CL_DEVICE_IMAGE3D_MAX_HEIGHT>() << "x" << device.getInfo<CL_DEVICE_IMAGE3D_MAX_DEPTH>() << endl;
     // cout << "\timage array size:       " << device.getInfo<CL_DEVICE_IMAGE_MAX_ARRAY_SIZE>() << endl;
     cout << "\tMax samplers count:     " << device.getInfo<CL_DEVICE_MAX_SAMPLERS>() << endl;
     cout << "\tTimer resolution:       " << device.getInfo<CL_DEVICE_PROFILING_TIMER_RESOLUTION>() << " nanoseconds" << endl;
@@ -580,14 +581,52 @@ extern void show_cl_platform(cl::Platform &platform, bool all_devices, std::vect
     cout << "Extensions:    \t" << show_extensions_list(ext_list, "\t\t") << endl;
 
     std::vector<cl::Device> clDevices;
+    std::vector<cl::Device> clPerTypeDevices;
+
     platform.getDevices(CL_DEVICE_TYPE_ALL, &clDevices);
-    cout << "Devices:       \t" << clDevices.size();
+    cout << "Devices:       \t";
+    bool devices_output = false;
+
+    for (cl_device_type deviceType: std::array<cl_device_type, 4> { CL_DEVICE_TYPE_ACCELERATOR, CL_DEVICE_TYPE_GPU, CL_DEVICE_TYPE_CPU, CL_DEVICE_TYPE_CUSTOM })
+    {
+	clPerTypeDevices.clear();
+
+	try
+	{
+	    platform.getDevices(deviceType, &clPerTypeDevices);
+
+	    if (clPerTypeDevices.size() != 0)
+	    {
+		if (devices_output)
+		    cout << ", ";
+
+		cout << clPerTypeDevices.size() << ' ' << list_cl_device_type(deviceType);
+
+		if (deviceType != CL_DEVICE_TYPE_CUSTOM && clPerTypeDevices.size() > 1)
+		    cout << "s";
+
+		devices_output = true;
+	    }
+	}
+	catch (cl::Error const &err)
+	{
+	    if (err.err() != CL_DEVICE_NOT_FOUND && err.err() != CL_INVALID_DEVICE_TYPE)
+		throw;
+	}
+    }
+
     if (!clDevices.empty())
     {
+	if (clDevices.size() > 1)
+	    cout << "\n               \t    " << list_cl_device_type(clDevices[0].getInfo<CL_DEVICE_TYPE>()) << ":";
+
 	cout << " [" << trim_name(clDevices[0].getInfo<CL_DEVICE_NAME>()) << "]";
 
 	for (size_t i = 1; i < clDevices.size(); i++)
-	    cout << endl << "               \t  [" << trim_name(clDevices[i].getInfo<CL_DEVICE_NAME>()) << "]";
+	{
+	    cout << endl << "               \t    " << list_cl_device_type(clDevices[i].getInfo<CL_DEVICE_TYPE>())
+		<< ": [" << trim_name(clDevices[i].getInfo<CL_DEVICE_NAME>()) << "]";
+	}
     }
     cout << endl;
 
