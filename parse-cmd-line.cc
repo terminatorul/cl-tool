@@ -204,8 +204,8 @@ void CmdLineArgs::parse(char const * const argv[])
 	    if (state != ReadDevices)
 		throw SyntaxError("Specify actions (\"--list\"/\"--probe\") and \"--platform\" before device name.");
 
-	    if (allDevices)
-		throw SyntaxError("Ambigous device selection, use either \"--devices\", either \"--device Name\".");
+	//     if (allDevices)
+	// 	throw SyntaxError("Ambigous device selection, use either \"--devices\", either \"--device Name\".");
 
 	    if (!platform)
 		throw SyntaxError("Specify a platform name with \"--platform\" before using \"--device\".");

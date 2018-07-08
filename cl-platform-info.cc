@@ -615,17 +615,18 @@ extern void show_cl_platform(cl::Platform &platform, bool all_devices, std::vect
 	for (auto &platformDeviceSet: device_list)
 	    for (size_t i = 0; i < platformDeviceSet->devices.size(); i++)
 		for (size_t cl_device = 0; cl_device < clDevices.size(); cl_device++)
-		    if (!listed_devices[cl_device])
-		    {
-			std::string device_name = trim_name(clDevices[cl_device].getInfo<CL_DEVICE_NAME>());
+		{
+		    std::string device_name = trim_name(clDevices[cl_device].getInfo<CL_DEVICE_NAME>());
 
-			if (device_name.find(platformDeviceSet->devices[i]) != std::string::npos)
-			{
+		    if (device_name.find(platformDeviceSet->devices[i]) != std::string::npos)
+		    {
+			if (!listed_devices[cl_device])
 			    show_cl_device(clDevices[cl_device]);
-			    listed_devices[cl_device] = true;
-			    platformDeviceSet->deviceUsage[i] = true;
-			}
+
+			listed_devices[cl_device] = true;
+			platformDeviceSet->deviceUsage[i] = true;
 		    }
+		}
     }
 
     cout << endl;
