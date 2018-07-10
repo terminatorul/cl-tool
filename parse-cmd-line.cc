@@ -9,7 +9,7 @@ using std::endl;
 void SyntaxError::ShowSyntax(char const *cmd_name)
 {
     cerr << "Syntax:" << endl;
-    cerr << "\t" << cmd_name << endl;
+    cerr << "\t" << cmd_name << " [ --include-defaults ]" << endl;
     cerr << "\t" << cmd_name << " [ [--list] [--probe] --platforms [--devices] ] " << endl;
     cerr << "\t" << cmd_name << " [ [--list] [--probe] --platform \"Name\" [--devices | --device \"Name\" ]... ]... " << endl;
     cerr << endl;
@@ -39,6 +39,10 @@ void SyntaxError::ShowSyntax(char const *cmd_name)
     cerr << "\t[--list] [--probe] --platform \"OpenCL Platform Name\" --device \"OpenCL Device Name\" " << endl;
     cerr << "\t     With --list (default) show selected OpenCL device, from the selected platform." << endl;
     cerr << "\t     With --probe show the resulting floating-point speed of the device." << endl;
+    cerr << endl;
+    cerr << "\t[--include-defaults]" << endl;
+    cerr << "\t     Include device details and extensions that are pre-defined for any OpenCL 1.2 device. By default" << endl;
+    cerr << "\t     pre-defined values are not shown to simplify the output." << endl;
     cerr << endl;
     cerr << "The platform and device names can also be substrings or prefixes thereof. You can list and probe several" << endl;
     cerr << "platforms and devices with multiple options. Option order is significant, specify the platform before the" << endl;
@@ -106,6 +110,14 @@ void CmdLineArgs::parse(char const * const argv[])
 
 	if (!strncmp("-h", arg, sizeof "-h") || !strncmp("--help", arg, sizeof "--help") || !strncmp("--usage", arg, sizeof "--usage"))
 	    throw SyntaxError();
+
+        if (!strncmp("--include-defaults", arg, sizeof "--include-defaults"))
+        {
+            show_defaults = true;
+
+            argv++;
+            continue;
+        }
 
 	if (!strncmp("--probe", arg, sizeof "--probe"))
 	{

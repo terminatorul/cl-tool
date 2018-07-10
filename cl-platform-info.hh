@@ -23,6 +23,7 @@ struct PlatformDeviceSet
 };
 
 extern char const *error_string(cl_int err);
+extern bool list_all;
 std::string trim_name(std::string name);
 extern void show_cl_device(cl::Device &device, bool showPlatform = false);
 extern void show_cl_platform(cl::Platform &platform, bool all_devices, std::vector<PlatformDeviceSet *> &device_list);

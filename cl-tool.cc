@@ -134,6 +134,8 @@ try
 
     args.parse(argv + 1);
 
+    list_all = args.show_defaults;
+
     if (args.list.all_platforms || !args.list.platforms.empty())
 	result = show_cl_platforms(args.list);
 

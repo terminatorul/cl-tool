@@ -26,6 +26,7 @@ struct CmdLineArgs
     }
 	list, probe;
 
+    bool show_defaults = false;
     void parse(char const * const argv[]);
 
 protected:
