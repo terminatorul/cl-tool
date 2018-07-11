@@ -35,9 +35,10 @@ else()
     add_dependencies(cl-tool cl-matrix-rand.cl)
 endif()
 
-add_custom_target(tags DEPENDS ${CL_TOOL_SOURCES} BYPRODUCTS tags WORKING_DIRECTORY ${CMAKE_SRC_DIR}
+add_custom_target(tags DEPENDS ${CL_TOOL_SOURCES} BYPRODUCTS tags WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    COMMAND echo Building tags file...
     COMMAND ctags -R ${CL_TOOL_SOURCES} ${OPENCL_INCLUDE_DIRS} ${OPENCL2_HPP_INCLUDE_DIRS})
-add_dependencies(cl-tool tags)
+# add_dependencies(cl-tool tags)
 
 if (NOT WIN32)
     enable_testing()

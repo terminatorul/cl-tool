@@ -473,7 +473,9 @@ std::set<std::string> const default_CL12_Extensions
     "cl_khr_global_int32_extended_atomics",
     "cl_khr_local_int32_base_atomics",
     "cl_khr_local_int32_extended_atomics",
-    "cl_khr_byte_addressable_store"
+    "cl_khr_byte_addressable_store",
+    "cl_khr_fp64",
+    "cl_khr_icd"
 };
 
 static std::string show_extensions_list(std::list<std::string> &extensions, char const *indent)
@@ -741,6 +743,8 @@ extern void show_cl_platform(cl::Platform &platform, bool all_devices, std::vect
 	{
 	    std::string device_name = trim_name(clDevice.getInfo<CL_DEVICE_NAME>());
 
+	    std::transform(device_name.begin(), device_name.end(), device_name.begin(), (int (*)(int))&std::toupper);
+
 	    show_cl_device(clDevice);
 
 	    for (auto &deviceSet: device_list)
@@ -757,6 +761,7 @@ extern void show_cl_platform(cl::Platform &platform, bool all_devices, std::vect
 		for (size_t cl_device = 0; cl_device < clDevices.size(); cl_device++)
 		{
 		    std::string device_name = trim_name(clDevices[cl_device].getInfo<CL_DEVICE_NAME>());
+		    std::transform(device_name.begin(), device_name.end(), device_name.begin(), (int (*)(int))&std::toupper);
 
 		    if (device_name.find(platformDeviceSet->devices[i]) != std::string::npos)
 		    {

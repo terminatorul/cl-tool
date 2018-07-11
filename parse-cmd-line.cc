@@ -31,7 +31,7 @@ void SyntaxError::ShowSyntax(char const *cmd_name)
     cerr << "\t          " << cmd_name << " --list --probe --platforms --devices" << endl;
     cerr << endl;
     cerr << "\t[--list] [--probe] --platform \"OpenCL Platform or Vendor Name\" [--devices]" << endl;
-    cerr << "\t     With --list (default) show details on selected OpenCL platform/vendor." << endl;
+    cerr << "\t     With --list (default) show details on selected OpenCL platform or vendor/other info." << endl;
     cerr << "\t     With --devices show details on available OpenCL devices in selected platform." << endl;
     cerr << "\t     With --probe report the resulting floating-point speed of the devices," << endl;
     cerr << "\t     usually in GFLOPS." << endl;
@@ -64,9 +64,13 @@ void CmdLineArgs::newAction(SelectionSet &selectionSet, char const *platform, bo
 	PlatformDeviceSet &deviceSet = *selectionSet.platforms.rbegin();
 
 	deviceSet.platformSelector = platform;
+	std::transform(deviceSet.platformSelector.begin(), deviceSet.platformSelector.end(), deviceSet.platformSelector.begin(),
+		(int (*)(int))&std::toupper);
 	deviceSet.platformUsage = false;
 	deviceSet.allDevices = allDevices;
 	deviceSet.devices.assign(devices.cbegin(), devices.cend());
+	for (auto &device: deviceSet.devices)
+	    std::transform(device.begin(), device.end(), device.begin(), (int (*)(int))&std::toupper);
 	deviceSet.deviceUsage.resize(devices.size());
     }
     else

@@ -47,13 +47,25 @@ void CL_CALLBACK context_error_notification(char const *error_info, void const *
 
 void select_matching_platforms(cl::Platform &clPlatform, std::vector<PlatformDeviceSet> &userSelection, std::vector<PlatformDeviceSet *> &matchSelection)
 {
-    std::string platform_name = trim_name(clPlatform.getInfo<CL_PLATFORM_NAME>()), vendor_name = trim_name(clPlatform.getInfo<CL_PLATFORM_VENDOR>());
+    std::string
+	platform_name = trim_name(clPlatform.getInfo<CL_PLATFORM_NAME>()),
+	vendor_name = trim_name(clPlatform.getInfo<CL_PLATFORM_VENDOR>()),
+	version = trim_name(clPlatform.getInfo<CL_PLATFORM_VERSION>()),
+	icd_suffix = trim_name(clPlatform.getInfo<CL_PLATFORM_ICD_SUFFIX_KHR>());
+
+    for (auto str: std::array<std::string *, 4> { &platform_name, &vendor_name, &version, &icd_suffix })
+	std::transform(str->begin(), str->end(), str->begin(), (int(*)(int))&std::toupper);
 
     matchSelection.clear();
 
     for (auto &platformDeviceSet: userSelection) 
-	if (platform_name.find(platformDeviceSet.platformSelector) != std::string::npos || vendor_name.find(platformDeviceSet.platformSelector) != std::string::npos)
+	if (platform_name.find(platformDeviceSet.platformSelector) != std::string::npos ||
+	    vendor_name.find(platformDeviceSet.platformSelector) != std::string::npos ||
+	    version.find(platformDeviceSet.platformSelector) != std::string::npos ||
+	    icd_suffix == platformDeviceSet.platformSelector)
+	{
 	    matchSelection.push_back(&platformDeviceSet);
+	}
 }
 
 bool show_cl_platforms(CmdLineArgs::SelectionSet &platformSelection)
@@ -85,11 +97,20 @@ bool show_cl_platforms(CmdLineArgs::SelectionSet &platformSelection)
 		{
 		    std::string
 			platform_name = trim_name(clPlatforms[i].getInfo<CL_PLATFORM_NAME>()),
-			vendor_name = trim_name(clPlatforms[i].getInfo<CL_PLATFORM_VENDOR>());
+			vendor_name = trim_name(clPlatforms[i].getInfo<CL_PLATFORM_VENDOR>()),
+			version = trim_name(clPlatforms[i].getInfo<CL_PLATFORM_VERSION>()),
+			icd_suffix = trim_name(clPlatforms[i].getInfo<CL_PLATFORM_ICD_SUFFIX_KHR>());
+
+		    for (auto str: std::array<std::string *, 4> { &platform_name, &vendor_name, &version, &icd_suffix })
+			std::transform(str->begin(), str->end(), str->begin(), (int (*)(int))&std::toupper);
 
 		    if (platform_name.find(platformDeviceSet.platformSelector) != std::string::npos
 			    ||
-			vendor_name.find(platformDeviceSet.platformSelector) != std::string::npos)
+			vendor_name.find(platformDeviceSet.platformSelector) != std::string::npos
+			    ||
+			version.find(platformDeviceSet.platformSelector) != std::string::npos
+			    ||
+			icd_suffix == platformDeviceSet.platformSelector)
 		    {
 			select_matching_platforms(clPlatforms[i], platformSelection.platforms, matchSelection);
 			show_cl_platform(clPlatforms[i], false, matchSelection);
