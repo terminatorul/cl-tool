@@ -523,6 +523,9 @@ extern std::string trim_name(std::string name)
 
 extern void show_cl_device(cl::Device &device, bool showPlatform)
 {
+    bool has_type_half = has_extension(device.getInfo<CL_DEVICE_EXTENSIONS>(), "cl_khr_fp16"),
+	 has_type_double = !!device.getInfo<CL_DEVICE_DOUBLE_FP_CONFIG>();
+
     cout << "\tDevice:                 " << trim_name(device.getInfo<CL_DEVICE_NAME>()) << endl;
     cout << "\tPlatform:               " << trim_name(cl::Platform(device.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>()) << endl;
     cout << "\tVendor:                 [0x" << std::setw(4) << std::setfill('0') << std::setiosflags(cout.right | cout.uppercase) << std::setbase(16) << device.getInfo<CL_DEVICE_VENDOR_ID>() /* << std::resetiosflags() */ << std::setbase(10) << "] "
@@ -607,31 +610,32 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
     cout << "\tNative vector size:     " << "(char: " << std::setw(2) << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR>() << ", short: " << std::setw(2) << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT>()
 					 << ", int: " << std::setw(2) << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_INT>() << ", long: " << std::setw(2) << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG>();
 
-    if (list_all || has_extension(device.getInfo<CL_DEVICE_EXTENSIONS>(), "cl_khr_fp16"))
+    if (list_all || has_type_half)
         cout << ", half: " << std::setw(2) << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF>();
 
     cout << ", float: " << std::setw(2) << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT>();
 
-    if (list_all | has_extension(device.getInfo<CL_DEVICE_EXTENSIONS>(), "cl_khr_fp64"))
+    if (list_all | has_type_double)
         cout << ", double: " << std::setw(2) << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE>();
 
     cout << ")" << endl;
     cout << "\tPrefferred vector size: " << "(char: " << std::setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR>() << ", short: " << std::setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT>()
 					 << ", int: " << std::setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT>() << ", long: " << std::setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG>();
-    if (list_all || has_extension(device.getInfo<CL_DEVICE_EXTENSIONS>(), "cl_khr_fp16"))
+    if (list_all || has_type_half)
         cout << ", half: " << std::setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF>();
 
     cout << ", float: " << std::setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT>();
 
-    if (list_all | has_extension(device.getInfo<CL_DEVICE_EXTENSIONS>(), "cl_khr_fp64"))
+    if (list_all | has_type_double)
         cout << ", double: " << std::setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE>();
     cout  << ")" << endl;
 
-    if (list_all || has_extension(device.getInfo<CL_DEVICE_EXTENSIONS>(), "cl_khr_fp16"))
-        cout << "\tHalf float config:      " << ((has_extension(device.getInfo<CL_DEVICE_EXTENSIONS>(), "cl_khr_fp16")) ?
-					        list_float_support(device.getInfo<CL_DEVICE_HALF_FP_CONFIG>(), false) : "-") << endl;
-    if (list_all || has_extension(device.getInfo<CL_DEVICE_EXTENSIONS>(), "cl_khr_fp64"))
+    if (list_all || has_type_half)
+        cout << "\tHalf float config:      " << ((has_type_half) ? list_float_support(device.getInfo<CL_DEVICE_HALF_FP_CONFIG>(), false) : "-") << endl;
+    if (list_all || has_type_double)
         cout << "\tDouble float config:    " << list_float_support(device.getInfo<CL_DEVICE_DOUBLE_FP_CONFIG>(), false) << endl;
+    else
+        cout << "\tDouble float config:    -" << endl;
 
     cout << "\tSingle float config:    " << list_float_support(device.getInfo<CL_DEVICE_SINGLE_FP_CONFIG>(), true) << endl;
 
@@ -639,12 +643,12 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
 
     if (device.getInfo<CL_DEVICE_IMAGE_SUPPORT>())
     {
-        cout << "\t1D image size:          " << memory_size_str([&device]() -> size_t { size_t s; device.getInfo(CL_DEVICE_IMAGE_MAX_BUFFER_SIZE, &s); return s; }()) << endl;
-        cout << "\t2D image sizes:         " << "(" << device.getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>() << ", " << device.getInfo<CL_DEVICE_IMAGE2D_MAX_HEIGHT>() << ")" << endl;
-        cout << "\t3D image sizes:         " << "(" << device.getInfo<CL_DEVICE_IMAGE3D_MAX_WIDTH>() << ", " << device.getInfo<CL_DEVICE_IMAGE3D_MAX_HEIGHT>() << ", " << device.getInfo<CL_DEVICE_IMAGE3D_MAX_DEPTH>() << ")" << endl;
-        cout << "\tImage array size:       " << [&device]() -> size_t { size_t s; device.getInfo(CL_DEVICE_IMAGE_MAX_ARRAY_SIZE, &s); return s; }() << endl;
-        cout << "\tMax samplers count:     " << device.getInfo<CL_DEVICE_MAX_SAMPLERS>() << endl;
-        cout << "\tMax image args:         " << device.getInfo<CL_DEVICE_MAX_READ_IMAGE_ARGS>() << " read, " << device.getInfo<CL_DEVICE_MAX_WRITE_IMAGE_ARGS>() << " write" << endl;
+        cout << "\t    1D image size:      " << memory_size_str([&device]() -> size_t { size_t s; device.getInfo(CL_DEVICE_IMAGE_MAX_BUFFER_SIZE, &s); return s; }()) << endl;
+        cout << "\t    2D image sizes:     " << "(" << device.getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>() << ", " << device.getInfo<CL_DEVICE_IMAGE2D_MAX_HEIGHT>() << ")" << endl;
+        cout << "\t    3D image sizes:     " << "(" << device.getInfo<CL_DEVICE_IMAGE3D_MAX_WIDTH>() << ", " << device.getInfo<CL_DEVICE_IMAGE3D_MAX_HEIGHT>() << ", " << device.getInfo<CL_DEVICE_IMAGE3D_MAX_DEPTH>() << ")" << endl;
+        cout << "\t    Image array size:   " << [&device]() -> size_t { size_t s; device.getInfo(CL_DEVICE_IMAGE_MAX_ARRAY_SIZE, &s); return s; }() << endl;
+        cout << "\t    Samplers count:     " << device.getInfo<CL_DEVICE_MAX_SAMPLERS>() << endl;
+        cout << "\t    Image args count:   " << device.getInfo<CL_DEVICE_MAX_READ_IMAGE_ARGS>() << " read, " << device.getInfo<CL_DEVICE_MAX_WRITE_IMAGE_ARGS>() << " write" << endl;
     }
 
     cout << "\tTimer resolution:       " << device.getInfo<CL_DEVICE_PROFILING_TIMER_RESOLUTION>() << " nanoseconds" << endl;
