@@ -3,10 +3,12 @@
 #include <cstring>
 #include <ctime>
 #include <stdexcept>
+#include <locale>
 #include <vector>
 #include <string>
 #include <regex>
 #include <algorithm>
+#include <functional>
 #include <iostream>
 #include <iomanip>
 #include <sstream>
@@ -54,7 +56,7 @@ void select_matching_platforms(cl::Platform &clPlatform, std::vector<PlatformDev
 	icd_suffix = trim_name(clPlatform.getInfo<CL_PLATFORM_ICD_SUFFIX_KHR>());
 
     for (auto str: std::array<std::string *, 4> { &platform_name, &vendor_name, &version, &icd_suffix })
-	std::transform(str->begin(), str->end(), str->begin(), (int(*)(int))&std::toupper);
+	std::transform(str->begin(), str->end(), str->begin(), std::bind(std::toupper<char>, std::placeholders::_1, std::locale()));
 
     matchSelection.clear();
 
@@ -102,7 +104,7 @@ bool show_cl_platforms(CmdLineArgs::SelectionSet &platformSelection)
 			icd_suffix = trim_name(clPlatforms[i].getInfo<CL_PLATFORM_ICD_SUFFIX_KHR>());
 
 		    for (auto str: std::array<std::string *, 4> { &platform_name, &vendor_name, &version, &icd_suffix })
-			std::transform(str->begin(), str->end(), str->begin(), (int (*)(int))&std::toupper);
+			std::transform(str->begin(), str->end(), str->begin(), std::bind(std::toupper<char>, std::placeholders::_1, std::locale()));
 
 		    if (platform_name.find(platformDeviceSet.platformSelector) != std::string::npos
 			    ||

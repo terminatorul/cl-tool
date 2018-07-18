@@ -1,10 +1,12 @@
 #include <cstddef>
+#include <locale>
 #include <string>
 #include <array>
 #include <vector>
 #include <list>
 #include <set>
 #include <algorithm>
+#include <functional>
 #include <regex>
 #include <sstream>
 #include <iostream>
@@ -386,14 +388,24 @@ static std::string list_float_support(cl_device_fp_config fp_config, bool single
 
     for (auto config: std::vector<cl_device_fp_config> { CL_FP_DENORM, CL_FP_INF_NAN, CL_FP_ROUND_TO_NEAREST, CL_FP_ROUND_TO_ZERO, CL_FP_ROUND_TO_INF, CL_FP_FMA, CL_FP_SOFT_FLOAT, CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT })
     {
-	if (config == CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT)
+	switch (config)
+        {
+        case CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT:
 	    if (single_precision)
 		str << ",\n\t\t\t\t";
 	    else
 		continue;
-	else
+        
+            break;
+        case CL_FP_ROUND_TO_INF:
+            str << ",\n\t\t\t\t";
+            break;
+
+	default:
 	    if (!str.str().empty())
-		    str << ", ";
+		    // str << ", ";
+                    str << ",\n\t\t\t\t";
+        }
 
 	if (fp_config & config)
 	    str << "[+] " << float_config(config);
@@ -747,7 +759,8 @@ extern void show_cl_platform(cl::Platform &platform, bool all_devices, std::vect
 	{
 	    std::string device_name = trim_name(clDevice.getInfo<CL_DEVICE_NAME>());
 
-	    std::transform(device_name.begin(), device_name.end(), device_name.begin(), (int (*)(int))&std::toupper);
+	    std::transform(device_name.begin(), device_name.end(), device_name.begin(), 
+                std::bind(std::toupper<char>, std::placeholders::_1, std::locale()));
 
 	    show_cl_device(clDevice);
 
@@ -758,6 +771,7 @@ extern void show_cl_platform(cl::Platform &platform, bool all_devices, std::vect
 	}
     else
     {
+        static std::locale process_locale;
 	std::vector<bool> listed_devices(clDevices.size());
 
 	for (auto &platformDeviceSet: device_list)
@@ -765,7 +779,8 @@ extern void show_cl_platform(cl::Platform &platform, bool all_devices, std::vect
 		for (size_t cl_device = 0; cl_device < clDevices.size(); cl_device++)
 		{
 		    std::string device_name = trim_name(clDevices[cl_device].getInfo<CL_DEVICE_NAME>());
-		    std::transform(device_name.begin(), device_name.end(), device_name.begin(), (int (*)(int))&std::toupper);
+		    std::transform(device_name.begin(), device_name.end(), device_name.begin(), 
+                        std::bind(std::toupper<char>, std::placeholders::_1, std::locale()));
 
 		    if (device_name.find(platformDeviceSet->devices[i]) != std::string::npos)
 		    {

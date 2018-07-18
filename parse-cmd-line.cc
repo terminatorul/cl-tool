@@ -1,5 +1,7 @@
+#include <locale>
 #include <iostream>
 #include <algorithm>
+#include <functional>
 
 #include "parse-cmd-line.hh"
 
@@ -65,12 +67,12 @@ void CmdLineArgs::newAction(SelectionSet &selectionSet, char const *platform, bo
 
 	deviceSet.platformSelector = platform;
 	std::transform(deviceSet.platformSelector.begin(), deviceSet.platformSelector.end(), deviceSet.platformSelector.begin(),
-		(int (*)(int))&std::toupper);
+		std::bind(std::toupper<char>, std::placeholders::_1, std::locale()));
 	deviceSet.platformUsage = false;
 	deviceSet.allDevices = allDevices;
 	deviceSet.devices.assign(devices.cbegin(), devices.cend());
 	for (auto &device: deviceSet.devices)
-	    std::transform(device.begin(), device.end(), device.begin(), (int (*)(int))&std::toupper);
+	    std::transform(device.begin(), device.end(), device.begin(), std::bind(std::toupper<char>, std::placeholders::_1, std::locale()));
 	deviceSet.deviceUsage.resize(devices.size());
     }
     else
