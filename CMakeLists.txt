@@ -10,6 +10,7 @@ if(NOT EXISTS "${CMAKE_SOURCE_DIR}/OpenCL-Headers/CL/cl2.hpp")
 endif()
 set(OPENCL_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/OpenCL-Headers")
 
+add_definitions("-DCL_TARGET_OPENCL_VERSION=220")
 add_subdirectory("OpenCL-ICD-Loader")
 
 project(cl-tool CXX)
