@@ -1,10 +1,30 @@
 cmake_minimum_required(VERSION 3.2)
+
+message("-- Updating git submodules")
+execute_process (COMMAND git submodule update --init --recursive WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+if(NOT EXISTS "${CMAKE_SOURCE_DIR}/OpenCL-Headers/CL/cl2.hpp")
+    file(DOWNLOAD
+            "https://github.com/KhronosGroup/OpenCL-CLHPP/releases/download/v2.0.10/cl2.hpp"
+            "${CMAKE_SOURCE_DIR}/OpenCL-Headers/CL/cl2.hpp"
+            SHOW_PROGRESS)
+endif()
+set(OPENCL_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/OpenCL-Headers")
+
+add_subdirectory("OpenCL-ICD-Loader")
+
 project(cl-tool CXX)
 
-include(UseOpenCL.cmake)
-include(UseGoogleTest.cmake)
+# include(UseOpenCL.cmake)
+
+if (NOT WIN32)
+    include(UseGoogleTest.cmake)
+endif()
 
 find_package(Threads)
+
+set(OPENCL_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/OpenCL-Headers")
+set(OPENCL2_HPP_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/OpenCL-Headers")
+set(OPENCL_LIBRARIES OpenCL)
 
 set(CL_TOOL_SOURCES parse-cmd-line.hh parse-cmd-line.cc cl-matrix-mult.hh cl-matrix-mult.cc cl-platform-info.hh cl-platform-info.cc cl-tool.cc)
 set(CL_TOOL_TARGET_SOURCES cl-matrix-rand.cl)
