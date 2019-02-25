@@ -373,7 +373,7 @@ static char const *float_config(cl_device_fp_config config)
 	case CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT:
 	    return "correctly rounded divide & sqrt";
 	case CL_FP_SOFT_FLOAT:
-	    return "soft float";
+	    return "hardware float";
 	default:
 	    return "-";
     }
@@ -385,6 +385,8 @@ static std::string list_float_support(cl_device_fp_config fp_config, bool single
     //	return "-";
 
     std::ostringstream str;
+
+    fp_config ^= CL_FP_SOFT_FLOAT;      // negated "soft float" will be output as "hardware float"
 
     for (auto config: std::vector<cl_device_fp_config> { CL_FP_DENORM, CL_FP_INF_NAN, CL_FP_ROUND_TO_NEAREST, CL_FP_ROUND_TO_ZERO, CL_FP_ROUND_TO_INF, CL_FP_FMA, CL_FP_SOFT_FLOAT, CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT })
     {
@@ -414,6 +416,13 @@ static std::string list_float_support(cl_device_fp_config fp_config, bool single
     }
 
     return str.str();
+}
+
+static std::string list_all_float_support(bool has_half_config, cl_device_fp_config half_config, cl_device_fp_config float_config,
+        cl_device_fp_config double_config)
+{
+	static cl_device_fp_config const half_flags(CL_FP_DENORM | CL_FP_INF_NAN | CL_FP_ROUND_TO_NEAREST | CL_FP_ROUND_TO_ZERO |
+		CL_FP_ROUND_TO_INF | CL_FP_FMA | CL_FP_SOFT_FLOAT);
 }
 
 static std::string memory_size_str(cl_ulong memoryCapacity, bool showKiBytes = true)
