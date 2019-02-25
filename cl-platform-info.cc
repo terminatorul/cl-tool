@@ -709,7 +709,16 @@ extern void show_cl_platform(cl::Platform &platform, bool all_devices, std::vect
     std::vector<cl::Device> clDevices;
     std::vector<cl::Device> clPerTypeDevices;
 
-    platform.getDevices(CL_DEVICE_TYPE_ALL, &clDevices);
+    try
+    {
+	platform.getDevices(CL_DEVICE_TYPE_ALL, &clDevices);
+    }
+    catch (cl::Error const &err)
+    {
+	if (err.err() != CL_DEVICE_NOT_FOUND)
+	    throw;
+    }
+
     cout << "Devices:       \t";
     bool devices_output = false;
 
