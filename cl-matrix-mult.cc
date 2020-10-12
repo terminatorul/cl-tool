@@ -6,14 +6,20 @@
 
 #include "cl-matrix-mult.hh"
 
-static std::string readSourceFile(char const *file_name)
+using std::string;
+using std::ifstream;
+using std::ostringstream;
+using std::cerr;
+using std::endl;
+
+string readSourceFile(char const *file_name)
 {
-    std::ifstream sourceFile(file_name);
-    std::ostringstream sourceText;
+    ifstream sourceFile(file_name);
+    ostringstream sourceText;
 
     sourceFile.exceptions(sourceFile.exceptions() | sourceFile.badbit | sourceFile.failbit);
     sourceText << sourceFile.rdbuf();
-    
+
     return sourceText.str();
 }
 
@@ -41,7 +47,7 @@ char const *float_type_name(FloatType floatType)
 static cl::Program &build_program(cl::Program &program, FloatType floatType)
 try
 {
-    program.build((std::string("-cl-std=CL1.1 -DFLOAT_TYPE=") + float_type_name(floatType)).c_str());
+    program.build((string("-cl-std=CL1.1 -DFLOAT_TYPE=") + float_type_name(floatType)).c_str());
 
     return program;
 }
@@ -54,12 +60,12 @@ catch(cl::Error const &error)
 
 	if (!buildLog.empty())
 	    for (auto const &output_msg: buildLog)
-		std::cerr << "Build output from device " << output_msg.first.getInfo<CL_DEVICE_NAME>() << ":\n\t" << output_msg.second << std::endl;
+		cerr << "Build output from device " << output_msg.first.getInfo<CL_DEVICE_NAME>() << ":\n\t" << output_msg.second << endl;
 #else
-	std::string deviceBuildLog;
+	string deviceBuildLog;
 
 	program.getInfo(CL_PROGRAM_BUILD_LOG, &deviceBuildLog);
-	std::cerr << "Build output:\n" << deviceBuildLog;
+	cerr << "Build output:\n" << deviceBuildLog;
 #endif
     }
 

@@ -1,4 +1,5 @@
 #include <cstddef>
+#include <type_traits>
 #include <locale>
 #include <string>
 #include <array>
@@ -8,16 +9,61 @@
 #include <algorithm>
 #include <functional>
 #include <regex>
+#include <chrono>
 #include <sstream>
 #include <iostream>
 #include <iomanip>
 
+#include "cl-matrix-mult.hh"
 #include "cl-platform-info.hh"
 
 using std::cerr;
+using std::clog;
 using std::cout;
 using std::endl;
 using std::size_t;
+using std::ostringstream;
+using std::string;
+using std::array;
+using std::vector;
+using std::list;
+using std::set;
+using std::basic_regex;
+using std::regex;
+using std::sregex_token_iterator;
+using std::regex_iterator;
+using std::setfill;
+using std::setw;
+using std::any_of;
+using std::transform;
+using std::bind;
+using std::toupper;
+using std::locale;
+using std::placeholders::_1;
+using std::conditional;
+using std::chrono::steady_clock;
+using std::chrono::high_resolution_clock;
+using std::chrono::duration_cast;
+using std::chrono::microseconds;
+
+using cl::Error;
+using cl::Context;
+using cl::Device;
+using cl::Kernel;
+using cl::Program;
+using cl::CommandQueue;
+using cl::Buffer;
+using cl::NDRange;
+using cl::EnqueueArgs;
+
+#if defined(CL_HPP_PARAM_NAME_INFO_1_0_)
+    template <typename... Ts>
+	using KernelFunction = cl::KernelFunctor<Ts...>;
+#else
+    template <typename... Ts>
+	using KernelFunction = cl::make_kernel<Ts...>;
+#endif
+
 
 extern char const *error_string(cl_int err)
 {
@@ -154,9 +200,9 @@ extern char const *error_string(cl_int err)
 
 bool list_all = false;
 
-static std::string list_cl_device_type(cl_device_type type_mask)
+static string list_cl_device_type(cl_device_type type_mask)
 {
-    std::ostringstream result_str;
+    ostringstream result_str;
 
     if (type_mask & CL_DEVICE_TYPE_GPU)
 	result_str << "GPU";
@@ -192,16 +238,24 @@ static std::string list_cl_device_type(cl_device_type type_mask)
     return result_str.str();
 }
 
-static std::string list_values(std::vector<size_t> const &sizes)
+static string dimension_size_str(cl_ulong dimensionSize);
+
+static string list_values(vector<size_t> const &sizes, bool showDimensions)
 {
-    std::ostringstream str;
+    ostringstream str;
 
     auto it = sizes.cbegin();
 
-    str << "(" << *it++;
+    if (showDimensions)
+	str << "(" << dimension_size_str(*it++);
+    else
+	str << "(" << *it++;
 
     while (it != sizes.cend())
-	str << ", " << *it++;
+	if (showDimensions)
+	    str << ", " << dimension_size_str(*it++);
+	else
+	    str << ", " << *it++;
 
     str << ")";
 
@@ -223,9 +277,9 @@ static char const *property_name(cl_device_partition_property prop)
     }
 }
 
-static std::string list_partitions(std::vector<cl_device_partition_property> const &partition_properties)
+static string list_partitions(vector<cl_device_partition_property> const &partition_properties)
 {
-    std::ostringstream str;
+    ostringstream str;
 
     auto it = partition_properties.cbegin();
 
@@ -264,11 +318,11 @@ static char const *affinity_domain(cl_device_affinity_domain affinity_domain)
     }
 }
 
-static std::string list_domains(cl_device_affinity_domain domains_mask)
+static string list_domains(cl_device_affinity_domain domains_mask)
 {
-    std::ostringstream str;
+    ostringstream str;
 
-    for (auto const &domain: std::array<cl_device_affinity_domain, 6> { CL_DEVICE_AFFINITY_DOMAIN_NUMA,  CL_DEVICE_AFFINITY_DOMAIN_L4_CACHE, CL_DEVICE_AFFINITY_DOMAIN_L3_CACHE, CL_DEVICE_AFFINITY_DOMAIN_L2_CACHE,
+    for (auto const &domain: array<cl_device_affinity_domain, 6> { CL_DEVICE_AFFINITY_DOMAIN_NUMA,  CL_DEVICE_AFFINITY_DOMAIN_L4_CACHE, CL_DEVICE_AFFINITY_DOMAIN_L3_CACHE, CL_DEVICE_AFFINITY_DOMAIN_L2_CACHE,
 								CL_DEVICE_AFFINITY_DOMAIN_L1_CACHE, CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE } )
     {
 	if (domains_mask & domain)
@@ -299,10 +353,10 @@ static char const *queue_property(cl_command_queue_properties prop)
     }
 }
 
-static std::string list_queue_props(cl_command_queue_properties props)
+static string list_queue_props(cl_command_queue_properties props)
 {
-    static std::array<cl_command_queue_properties, 2> const queue_caps { CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, CL_QUEUE_PROFILING_ENABLE };
-    std::ostringstream str;
+    static array<cl_command_queue_properties, 2> const queue_caps { CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, CL_QUEUE_PROFILING_ENABLE };
+    ostringstream str;
 
     for (unsigned i = 0; i < queue_caps.size() - (list_all ? 0 : 1); i++)
     {
@@ -333,10 +387,10 @@ static char const *execution_capability(cl_device_exec_capabilities cap)
     }
 }
 
-static std::string list_capabilities(cl_device_exec_capabilities caps)
+static string list_capabilities(cl_device_exec_capabilities caps)
 {
-    static const std::array<cl_device_exec_capabilities, 2> exec_caps { CL_EXEC_KERNEL,  CL_EXEC_NATIVE_KERNEL };
-    std::ostringstream str;
+    static const array<cl_device_exec_capabilities, 2> exec_caps { CL_EXEC_KERNEL,  CL_EXEC_NATIVE_KERNEL };
+    ostringstream str;
 
     for (unsigned i = (list_all ? 0 : 1); i < exec_caps.size(); i++)
     {
@@ -384,11 +438,11 @@ static std::string list_float_support(cl_device_fp_config fp_config, bool single
     // if (!fp_config)
     //	return "-";
 
-    std::ostringstream str;
+    ostringstream str;
 
     fp_config ^= CL_FP_SOFT_FLOAT;      // negated "soft float" will be output as "hardware float"
 
-    for (auto config: std::vector<cl_device_fp_config> { CL_FP_DENORM, CL_FP_INF_NAN, CL_FP_ROUND_TO_NEAREST, CL_FP_ROUND_TO_ZERO, CL_FP_ROUND_TO_INF, CL_FP_FMA, CL_FP_SOFT_FLOAT, CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT })
+    for (auto config: vector<cl_device_fp_config> { CL_FP_DENORM, CL_FP_INF_NAN, CL_FP_ROUND_TO_NEAREST, CL_FP_ROUND_TO_ZERO, CL_FP_ROUND_TO_INF, CL_FP_FMA, CL_FP_SOFT_FLOAT, CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT })
     {
 	switch (config)
         {
@@ -397,7 +451,7 @@ static std::string list_float_support(cl_device_fp_config fp_config, bool single
 		str << ",\n\t\t\t\t";
 	    else
 		continue;
-        
+
             break;
         case CL_FP_ROUND_TO_INF:
             str << ",\n\t\t\t\t";
@@ -418,16 +472,16 @@ static std::string list_float_support(cl_device_fp_config fp_config, bool single
     return str.str();
 }
 
-static std::string list_all_float_support(bool has_half_config, cl_device_fp_config half_config, cl_device_fp_config float_config,
+static string list_all_float_support(bool has_half_config, cl_device_fp_config half_config, cl_device_fp_config float_config,
         cl_device_fp_config double_config)
 {
 	static cl_device_fp_config const half_flags(CL_FP_DENORM | CL_FP_INF_NAN | CL_FP_ROUND_TO_NEAREST | CL_FP_ROUND_TO_ZERO |
 		CL_FP_ROUND_TO_INF | CL_FP_FMA | CL_FP_SOFT_FLOAT);
 }
 
-static std::string memory_size_str(cl_ulong memoryCapacity, bool showKiBytes = true)
+static string memory_size_str(cl_ulong memoryCapacity, bool showKiBytes = true, int fieldWidth = -1)
 {
-    std::ostringstream memoryString;
+    ostringstream memoryString;
 
     cl_ulong kbytes = memoryCapacity / 1024;
     cl_ulong mbytes = kbytes / 1024;
@@ -435,6 +489,9 @@ static std::string memory_size_str(cl_ulong memoryCapacity, bool showKiBytes = t
 
     kbytes %= 1024;
     mbytes %= 1024;
+
+    if (fieldWidth > 0)
+	memoryString << setw(fieldWidth) << setfill(' ');
 
     if (gbytes)
 	memoryString << gbytes << " GiBytes ";
@@ -445,7 +502,7 @@ static std::string memory_size_str(cl_ulong memoryCapacity, bool showKiBytes = t
     if (showKiBytes && kbytes)
 	memoryString << (kbytes % 1024) << " KiBytes ";
 
-    std::string result = memoryString.str();
+    string result = memoryString.str();
 
     while (!result.empty() && result.back() == ' ')
 	result.pop_back();
@@ -454,6 +511,36 @@ static std::string memory_size_str(cl_ulong memoryCapacity, bool showKiBytes = t
 	return "0 bytes";
 
     return result;
+}
+
+static string dimension_size_str(cl_ulong dimensionSize)
+{
+    ostringstream dimensionString;
+    char const *unit;
+
+    if (dimensionSize % 1024)
+	unit = "";
+    else
+	if (dimensionSize % (1024 * 1024))
+	{
+	    unit = "K";
+	    dimensionSize /= 1024;
+	}
+	else
+	    if (dimensionSize % (1024 * 1024 * 1024))
+	    {
+		unit = "M";
+		dimensionSize /= 1024 * 1024;
+	    }
+	    else
+	    {
+		unit = "G";
+		dimensionSize /= 1024 * 1024 * 1024;
+	    }
+
+    dimensionString << dimensionSize << unit;
+
+    return dimensionString.str();
 }
 
 static char const *memoryCacheType(cl_device_mem_cache_type memCacheType)
@@ -471,13 +558,13 @@ static char const *memoryCacheType(cl_device_mem_cache_type memCacheType)
     }
 }
 
-extern bool has_extension(std::string const &ext_list, char const *ext, size_t ext_len)
+extern bool has_extension(string const &ext_list, char const *ext, size_t ext_len)
 {
-    std::string::const_iterator it = ext_list.cbegin();
+    string::const_iterator it = ext_list.cbegin();
 
     while
 	(
-	    (it = std::search(it, ext_list.cend(), ext, ext + ext_len)) != ext_list.cend()
+	    (it = search(it, ext_list.cend(), ext, ext + ext_len)) != ext_list.cend()
 		&&
 	    ((it != ext_list.cbegin() && *(it - 1) != ' ') || (size_t(ext_list.cend() - it) > ext_len && *(it + ext_len) != ' ' && *(it + ext_len) != '\0'))
 	)
@@ -488,7 +575,7 @@ extern bool has_extension(std::string const &ext_list, char const *ext, size_t e
     return it != ext_list.cend();
 }
 
-std::set<std::string> const default_CL12_Extensions 
+set<string> const default_CL12_Extensions 
 {
     "cl_khr_global_int32_base_atomics", 
     "cl_khr_global_int32_extended_atomics",
@@ -499,9 +586,9 @@ std::set<std::string> const default_CL12_Extensions
     "cl_khr_icd"
 };
 
-static std::string show_extensions_list(std::list<std::string> &extensions, char const *indent)
+static string show_extensions_list(list<string> &extensions, char const *indent)
 {
-    std::ostringstream str;
+    ostringstream str;
 
     if (!extensions.empty())
     {
@@ -517,7 +604,7 @@ static std::string show_extensions_list(std::list<std::string> &extensions, char
 	while (it != extensions.cend())
         {
             if (list_all || default_CL12_Extensions.find(*it) == default_CL12_Extensions.cend())
-                str << std::endl << indent << *it;
+                str << endl << indent << *it;
 
             it++;
         }
@@ -526,12 +613,12 @@ static std::string show_extensions_list(std::list<std::string> &extensions, char
     return str.str();
 }
 
-static std::string show_extensions_list(std::list<std::string> &&extensions, char const *indent)
+static string show_extensions_list(list<string> &&extensions, char const *indent)
 {
     return show_extensions_list(extensions, indent);
 }
 
-extern std::string trim_name(std::string name)
+extern string trim_name(string name)
 {
     while (!name.empty() && (*name.rbegin() == '\0' || *name.rbegin() == ' ' || *name.rbegin() == '\t'))
 	name.pop_back();
@@ -542,7 +629,83 @@ extern std::string trim_name(std::string name)
     return name;
 }
 
-extern void show_cl_device(cl::Device &device, bool showPlatform)
+
+static char const benchmark_file_name[] = "./cl-double-pendulum.cl";
+
+static cl_command_queue create_command_queue(Context &context, Device &device)
+{
+    cl_int cmd_queue_error = 0;
+    cl_command_queue cmd_queue = clCreateCommandQueue(context(), device(), 0, &cmd_queue_error);
+
+    if (cmd_queue == 0)
+	throw cl::Error(cmd_queue_error, "Create command queue failed");
+
+    return cmd_queue;
+}
+
+static void show_cl_device_kernel(Device &device)
+{
+    array<cl_context_properties, 3> context_prop { CL_CONTEXT_PLATFORM, static_cast<cl_context_properties>(reinterpret_cast<intptr_t>(device.getInfo<CL_DEVICE_PLATFORM>())), 0 };
+    Context	 context(device, context_prop.data(), context_error_notification);
+    CommandQueue cmdQueue(create_command_queue(context, device));
+    Program      program(context, readSourceFile(benchmark_file_name), false);
+
+    try
+    {
+	program.build();
+    }
+    catch(Error const &error)
+    {
+	if (error.err() == CL_BUILD_PROGRAM_FAILURE)
+	{
+#if defined(CL_HPP_PARAM_NAME_INFO_1_0_)
+	    auto const buildLog = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>();
+
+	    if (!buildLog.empty())
+		for (auto const &output_msg: buildLog)
+		    cerr << "Build output from device " << output_msg.first.getInfo<CL_DEVICE_NAME>() << ":\n\t" << output_msg.second << std::endl;
+#else
+	    string deviceBuildLog;
+
+	    program.getInfo(CL_PROGRAM_BUILD_LOG, &deviceBuildLog);
+	    cerr << "Build output:\n" << deviceBuildLog;
+#endif
+	}
+	else
+	    cerr << "OpenCL error: " << error.what() << endl;
+
+	return;
+    }
+
+    // auto group_size = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
+
+    // size_t candidate_core_count = 256U;
+
+    // if (candidate_core_count > group_size)
+    //     candidate_core_count = group_size;
+
+    Kernel doublePendulumKernel(program, "doublePendulumSimulation");
+    // Buffer result(context, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, sizeof(cl_float) * candidate_core_count * 2 * device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * 2);
+
+    KernelFunction<Buffer, cl_ulong> doublePendulumSimulation(doublePendulumKernel);
+
+    // using ClockT = std::conditional<high_resolution_clock::is_steady, high_resolution_clock, steady_clock>::type;
+    // ClockT::time_point start_time = ClockT::now();
+    // doublePendulumSimulation(EnqueueArgs(cmdQueue, NDRange(0), NDRange(candidate_core_count * device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()), NDRange(candidate_core_count)), result, 1024 * 1024U);
+    // cmdQueue.finish();
+    // ClockT::time_point stop_time  = ClockT::now();
+    // clog << "Kernel time 1: " << duration_cast<microseconds>(stop_time - start_time).count() << "us" << endl;
+
+    // start_time = ClockT::now();
+    // doublePendulumSimulation(EnqueueArgs(cmdQueue, NDRange(0), NDRange(candidate_core_count * device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()), NDRange(candidate_core_count)), result, 1024 * 1024U);
+    // cmdQueue.finish();
+    // stop_time  = ClockT::now();
+    // clog << "Kernel time 2: " << duration_cast<microseconds>(stop_time - start_time).count() << "us" << endl;
+
+    cout << "\tGroup size multiple:    " << doublePendulumKernel.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(device) << endl;
+}
+
+extern void show_cl_device(Device &device, bool showPlatform)
 {
     bool has_type_half = has_extension(device.getInfo<CL_DEVICE_EXTENSIONS>(), "cl_khr_fp16"),
 	 has_type_double = !!device.getInfo<CL_DEVICE_DOUBLE_FP_CONFIG>();
@@ -574,21 +737,22 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
     cout << "\tMax clock speed:        " << device.getInfo<CL_DEVICE_MAX_CLOCK_FREQUENCY>() << " MHz" << endl;
     cout << "\tError correction:       " << (device.getInfo<CL_DEVICE_ERROR_CORRECTION_SUPPORT>() ? "[x]" : "[ ]") << endl;
     cout << "\tAddress size:           " <<  device.getInfo<CL_DEVICE_ADDRESS_BITS>() << " bits" << endl;
-    cout << "\tMemory:                 " << memory_size_str(device.getInfo<CL_DEVICE_GLOBAL_MEM_SIZE>(), false)
+    cout << "\tMemory:                 " << memory_size_str(device.getInfo<CL_DEVICE_GLOBAL_MEM_SIZE>(), false, 4)
 #if (CL_HPP_TARGET_OPENCL_VERSION >= 120)
-                                        << (device.getInfo<CL_DEVICE_HOST_UNIFIED_MEMORY>() ? " host memory" : " device memory")
+                                        << (device.getInfo<CL_DEVICE_HOST_UNIFIED_MEMORY>() ? " Shared memory" : " Dedicated memory") << endl;
 #endif
-                                        << " (";
+    cout << "\t                        ";
     if (device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_TYPE>() == CL_NONE)
-        cout << "no cache";
+        cout << "(no cache)";
     else
-        cout << memory_size_str(device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_SIZE>()) << ' ' << memoryCacheType(device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_TYPE>()) << " cache, "
-					<< device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE>() << " bytes cacheline";
-    cout << ")" << endl;
+        cout << memory_size_str(device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_SIZE>(), true, 4) << ' ' << memoryCacheType(device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_TYPE>()) << " cache" << endl
+	     << "\t                        " << setw(4) << setfill(' ') << device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE>() << " bytes cacheline";
+    cout << endl;
     cout << "\tMax memory object size: " << memory_size_str(device.getInfo<CL_DEVICE_MAX_MEM_ALLOC_SIZE>(), false) << endl;
-    cout << "\tMax const buffer size:  " << memory_size_str(device.getInfo<CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE>(), true) << endl; 
+    cout << "\tMax const buffer size:  " << memory_size_str(device.getInfo<CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE>(), true) << endl;
     cout << "\tMax const args:         " << device.getInfo<CL_DEVICE_MAX_CONSTANT_ARGS>() << endl;
     cout << "\tMax argument size:      " << memory_size_str(device.getInfo<CL_DEVICE_MAX_PARAMETER_SIZE>(), true) << endl;
+
     cout << "\tBase addres alignament: " << device.getInfo<CL_DEVICE_MEM_BASE_ADDR_ALIGN>() / 8 << " bytes (" << device.getInfo<CL_DEVICE_MEM_BASE_ADDR_ALIGN>() << " bits)" << endl;
     // cout << "\tprintf buffer size:     " << memory_size_str(device.getInfo<CL_DEVICE_PRINTF_BUFFER_SIZE>(), true) << endl;
     cout << "\tLittle endian:          " << (device.getInfo<CL_DEVICE_ENDIAN_LITTLE>() ? "[x]" : "[ ]") << endl;
@@ -617,38 +781,57 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
         }() << endl;
     }
 
-    cout << "\tCompute units memory:   " << memory_size_str(device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>()) << ' ' << (device.getInfo<CL_DEVICE_LOCAL_MEM_TYPE>() == CL_LOCAL ? "local memory" : "global memory") << endl;
-    cout << "\tWork group size:        " << device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>() << endl;
-    cout << "\tWork item dimensions:   " << list_values(device.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>()) << endl;
+    cout << "\tCompute Unit memory:    " << memory_size_str(device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>()) << ' ' << (device.getInfo<CL_DEVICE_LOCAL_MEM_TYPE>() == CL_LOCAL ? "local memory" : "global memory") << endl;
+
+    if
+	(
+	    device.getInfo<CL_DEVICE_AVAILABLE>()
+		&&
+	    device.getInfo<CL_DEVICE_COMPILER_AVAILABLE>()
+		&&
+	    [&device] () -> bool
+	    {
+		cl_bool has_linker;
+		device.getInfo(CL_DEVICE_LINKER_AVAILABLE, &has_linker);
+
+		return has_linker;
+	    }()
+	)
+    {
+	show_cl_device_kernel(device);
+    }
+
+    cout << "\tMax work group size:    " << dimension_size_str(device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>()) << endl;
+    cout << "\tWork item dimensions:   " << list_values(device.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>(), true) << endl;
     cout << "\tExecution queue flags:  " << list_queue_props(device.getInfo<CL_DEVICE_QUEUE_PROPERTIES>()) << endl;
     cout << "\tExecution capabilities: " << list_capabilities(device.getInfo<CL_DEVICE_EXECUTION_CAPABILITIES>()) << endl;
 #if (CL_HPP_TARGET_OPENCL_VERSION >= 120)
-    std::string local_string = device.getInfo<CL_DEVICE_BUILT_IN_KERNELS>();
-    std::regex separator(";");
-    cout << "\tBuilt-in kernels:       " << show_extensions_list(std::list<std::string>(std::sregex_token_iterator(local_string.cbegin(), local_string.cend(), separator, -1), std::sregex_token_iterator()), "\t\t\t\t") << endl;
+    string local_string = device.getInfo<CL_DEVICE_BUILT_IN_KERNELS>();
+    regex separator(";");
+    cout << "\tBuilt-in kernels:       " << show_extensions_list(list<string>(sregex_token_iterator(local_string.cbegin(), local_string.cend(), separator, -1), sregex_token_iterator()), "\t\t\t\t") << endl;
 #endif
-    cout << std::setfill(' ');
-    cout << "\tNative vector size:     " << "(char: " << std::setw(2) << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR>() << ", short: " << std::setw(2) << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT>()
-					 << ", int: " << std::setw(2) << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_INT>() << ", long: " << std::setw(2) << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG>();
+    cout << setfill(' ');
+    cout << "\tNative vector size:     " << "(char: " << setw(2) << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR>() << ", short: " << setw(2) << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT>()
+					 << ", int: " << setw(2) << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_INT>()  << ", long: "  << setw(2) << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_LONG>();
 
     if (list_all || has_type_half)
-        cout << ", half: " << std::setw(2) << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF>();
+        cout << ", half: " << setw(2) << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF>();
 
-    cout << ", float: " << std::setw(2) << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT>();
+    cout << ", float: " << setw(2) << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT>();
 
     if (list_all | has_type_double)
-        cout << ", double: " << std::setw(2) << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE>();
+        cout << ", double: " << setw(2) << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE>();
 
     cout << ")" << endl;
-    cout << "\tPrefferred vector size: " << "(char: " << std::setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR>() << ", short: " << std::setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT>()
-					 << ", int: " << std::setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT>() << ", long: " << std::setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG>();
+    cout << "\tPrefferred vector size: " << "(char: " << setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR>() << ", short: " << setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT>()
+					 << ", int: " << setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT>()  << ", long: "  << setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG>();
     if (list_all || has_type_half)
-        cout << ", half: " << std::setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF>();
+        cout << ", half: " << setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF>();
 
-    cout << ", float: " << std::setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT>();
+    cout << ", float: " << setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT>();
 
     if (list_all | has_type_double)
-        cout << ", double: " << std::setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE>();
+        cout << ", double: " << setw(2) << device.getInfo<CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE>();
     cout  << ")" << endl;
 
     if (list_all || has_type_half)
@@ -665,9 +848,9 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
     if (device.getInfo<CL_DEVICE_IMAGE_SUPPORT>())
     {
         cout << "\t    1D image size:      " << memory_size_str([&device]() -> size_t { size_t s; device.getInfo(CL_DEVICE_IMAGE_MAX_BUFFER_SIZE, &s); return s; }()) << endl;
-        cout << "\t    2D image sizes:     " << "(" << device.getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>() << ", " << device.getInfo<CL_DEVICE_IMAGE2D_MAX_HEIGHT>() << ")" << endl;
-        cout << "\t    3D image sizes:     " << "(" << device.getInfo<CL_DEVICE_IMAGE3D_MAX_WIDTH>() << ", " << device.getInfo<CL_DEVICE_IMAGE3D_MAX_HEIGHT>() << ", " << device.getInfo<CL_DEVICE_IMAGE3D_MAX_DEPTH>() << ")" << endl;
-        cout << "\t    Image array size:   " << [&device]() -> size_t { size_t s; device.getInfo(CL_DEVICE_IMAGE_MAX_ARRAY_SIZE, &s); return s; }() << endl;
+        cout << "\t    2D image sizes:     " << '(' << dimension_size_str(device.getInfo<CL_DEVICE_IMAGE2D_MAX_WIDTH>()) << ", " << dimension_size_str(device.getInfo<CL_DEVICE_IMAGE2D_MAX_HEIGHT>()) << ')' << endl;
+        cout << "\t    3D image sizes:     " << '(' << dimension_size_str(device.getInfo<CL_DEVICE_IMAGE3D_MAX_WIDTH>()) << ", " << dimension_size_str(device.getInfo<CL_DEVICE_IMAGE3D_MAX_HEIGHT>()) << ", " << dimension_size_str(device.getInfo<CL_DEVICE_IMAGE3D_MAX_DEPTH>()) << ')' << endl;
+        cout << "\t    Image array size:   " << dimension_size_str([&device]() -> size_t { size_t s; device.getInfo(CL_DEVICE_IMAGE_MAX_ARRAY_SIZE, &s); return s; }()) << endl;
         cout << "\t    Samplers count:     " << device.getInfo<CL_DEVICE_MAX_SAMPLERS>() << endl;
         cout << "\t    Image args count:   " << device.getInfo<CL_DEVICE_MAX_READ_IMAGE_ARGS>() << " read, " << device.getInfo<CL_DEVICE_MAX_WRITE_IMAGE_ARGS>() << " write" << endl;
     }
@@ -675,8 +858,8 @@ extern void show_cl_device(cl::Device &device, bool showPlatform)
     cout << "\tTimer resolution:       " << device.getInfo<CL_DEVICE_PROFILING_TIMER_RESOLUTION>() << " nanoseconds" << endl;
 
     local_string = device.getInfo<CL_DEVICE_EXTENSIONS>();
-    separator = std::regex("[[:space:]]+");
-    cout << "\tExtensions:             " << show_extensions_list(std::list<std::string>(std::sregex_token_iterator(local_string.cbegin(), local_string.cend(), separator, -1), std::sregex_token_iterator()), "\t\t\t\t") << endl;
+    separator = regex("[[:space:]]+");
+    cout << "\tExtensions:             " << show_extensions_list(list<string>(sregex_token_iterator(local_string.cbegin(), local_string.cend(), separator, -1), sregex_token_iterator()), "\t\t\t\t") << endl;
     cout << endl;
 }
 
@@ -690,13 +873,13 @@ extern void show_cl_platform(cl::Platform &platform, bool all_devices, std::vect
     cout << "Version:       \t" << platform.getInfo<CL_PLATFORM_VERSION>() << endl;
     cout << "ICD suffix:    \t" << platform.getInfo<CL_PLATFORM_ICD_SUFFIX_KHR>() << endl;
 
-    std::string extensions = platform.getInfo<CL_PLATFORM_EXTENSIONS>();
-    std::basic_regex<char> const feature_name_regexp("[^[:space:]]*");
-    std::list<std::string> ext_list;
+    string extensions = platform.getInfo<CL_PLATFORM_EXTENSIONS>();
+    basic_regex<char> const feature_name_regexp("[^[:space:]]*");
+    list<string> ext_list;
     for
 	(
-	    std::regex_iterator<std::string::const_iterator> it(extensions.cbegin(), extensions.cend(), feature_name_regexp);
-	    it != std::regex_iterator<std::string::const_iterator>();
+	    regex_iterator<string::const_iterator> it(extensions.cbegin(), extensions.cend(), feature_name_regexp);
+	    it != regex_iterator<string::const_iterator>();
 	    it++
 	)
     {
@@ -706,8 +889,8 @@ extern void show_cl_platform(cl::Platform &platform, bool all_devices, std::vect
 
     cout << "Extensions:    \t" << show_extensions_list(ext_list, "\t\t") << endl;
 
-    std::vector<cl::Device> clDevices;
-    std::vector<cl::Device> clPerTypeDevices;
+    vector<Device> clDevices;
+    vector<Device> clPerTypeDevices;
 
     try
     {
@@ -722,7 +905,7 @@ extern void show_cl_platform(cl::Platform &platform, bool all_devices, std::vect
     cout << "Devices:       \t";
     bool devices_output = false;
 
-    for (cl_device_type deviceType: std::array<cl_device_type, 4> { CL_DEVICE_TYPE_ACCELERATOR, CL_DEVICE_TYPE_GPU, CL_DEVICE_TYPE_CPU, CL_DEVICE_TYPE_CUSTOM })
+    for (cl_device_type deviceType: array<cl_device_type, 4> { CL_DEVICE_TYPE_ACCELERATOR, CL_DEVICE_TYPE_GPU, CL_DEVICE_TYPE_CPU, CL_DEVICE_TYPE_CUSTOM })
     {
 	clPerTypeDevices.clear();
 
@@ -770,37 +953,40 @@ extern void show_cl_platform(cl::Platform &platform, bool all_devices, std::vect
     for (auto &platformDeviceSet: device_list)
 	platformDeviceSet->platformUsage = true;
 
-    all_devices = all_devices || std::any_of(device_list.cbegin(), device_list.cend(), [](PlatformDeviceSet *deviceSet) -> bool { return deviceSet->allDevices; });
+    all_devices = all_devices || any_of(device_list.cbegin(), device_list.cend(), [](PlatformDeviceSet *deviceSet) -> bool
+	    {
+		return deviceSet->allDevices;
+	    });
 
     if (all_devices)
 	for (auto &clDevice: clDevices)
 	{
-	    std::string device_name = trim_name(clDevice.getInfo<CL_DEVICE_NAME>());
+	    string device_name = trim_name(clDevice.getInfo<CL_DEVICE_NAME>());
 
-	    std::transform(device_name.begin(), device_name.end(), device_name.begin(), 
-                std::bind(std::toupper<char>, std::placeholders::_1, std::locale()));
+	    transform(device_name.begin(), device_name.end(), device_name.begin(), 
+                bind(toupper<char>, _1, locale()));
 
 	    show_cl_device(clDevice);
 
 	    for (auto &deviceSet: device_list)
 		for (size_t i = 0; i < deviceSet->devices.size(); i++)
-		    if (device_name.find(deviceSet->devices[i]) != std::string::npos)
+		    if (device_name.find(deviceSet->devices[i]) != string::npos)
 			deviceSet->deviceUsage[i] = true;
 	}
     else
     {
-        static std::locale process_locale;
-	std::vector<bool> listed_devices(clDevices.size());
+        static locale process_locale;
+	vector<bool> listed_devices(clDevices.size());
 
 	for (auto &platformDeviceSet: device_list)
 	    for (size_t i = 0; i < platformDeviceSet->devices.size(); i++)
 		for (size_t cl_device = 0; cl_device < clDevices.size(); cl_device++)
 		{
-		    std::string device_name = trim_name(clDevices[cl_device].getInfo<CL_DEVICE_NAME>());
-		    std::transform(device_name.begin(), device_name.end(), device_name.begin(), 
-                        std::bind(std::toupper<char>, std::placeholders::_1, std::locale()));
+		    string device_name = trim_name(clDevices[cl_device].getInfo<CL_DEVICE_NAME>());
+		    transform(device_name.begin(), device_name.end(), device_name.begin(), 
+                        bind(toupper<char>, _1, locale()));
 
-		    if (device_name.find(platformDeviceSet->devices[i]) != std::string::npos)
+		    if (device_name.find(platformDeviceSet->devices[i]) != string::npos)
 		    {
 			if (!listed_devices[cl_device])
 			    show_cl_device(clDevices[cl_device]);

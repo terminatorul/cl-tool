@@ -28,7 +28,7 @@ set(OPENCL2_HPP_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/OpenCL-Headers")
 set(OPENCL_LIBRARIES OpenCL)
 
 set(CL_TOOL_SOURCES parse-cmd-line.hh parse-cmd-line.cc cl-matrix-mult.hh cl-matrix-mult.cc cl-platform-info.hh cl-platform-info.cc cl-tool.cc)
-set(CL_TOOL_TARGET_SOURCES cl-matrix-rand.cl)
+set(CL_TOOL_TARGET_SOURCES cl-matrix-rand.cl cl-double-pendulum.cl)
 
 add_executable(cl-tool ${CL_TOOL_SOURCES})
 target_compile_features(cl-tool PRIVATE cxx_std_14)
@@ -54,6 +54,8 @@ if (WIN32)
 else()
     add_custom_target(cl-matrix-rand.cl DEPENDS "${PROJECT_SOURCE_DIR}/cl-matrix-rand.cl" BYPRODUCTS cl-matrix-rand.cl WORKING DIRECTORY . COMMAND "${CMAKE_COMMAND}" -E create_symlink "${PROJECT_SOURCE_DIR}/cl-matrix-rand.cl" "cl-matrix-rand.cl")
     add_dependencies(cl-tool cl-matrix-rand.cl)
+    add_custom_target(cl-double-pendulum.cl DEPENDS "${PROJECT_SOURCE_DIR}/cl-double-pendulum.cl" BYPRODUCTS cl-double-pendulum.cl WORKING DIRECTORY . COMMAND "${CMAKE_COMMAND}" -E create_symlink "${PROJECT_SOURCE_DIR}/cl-double-pendulum.cl" "cl-double-pendulum.cl")
+    add_dependencies(cl-tool cl-double-pendulum.cl)
 endif()
 
 add_custom_target(tags DEPENDS ${CL_TOOL_SOURCES} BYPRODUCTS tags WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}

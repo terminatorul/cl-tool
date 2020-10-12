@@ -33,21 +33,29 @@
 using std::cerr;
 using std::cout;
 using std::endl;
+using std::string;
+using std::array;
+using std::vector;
+using std::transform;
+using std::bind;
+using std::toupper;
+using std::placeholders::_1;
+using std::locale;
 
 void list_context_devices(cl::Context &context)
 {
-    std::vector<cl::Device> devices(context.getInfo<CL_CONTEXT_DEVICES>());
+    vector<cl::Device> devices(context.getInfo<CL_CONTEXT_DEVICES>());
 
     for (auto &device: devices)
 	show_cl_device(device);
 }
 
-void CL_CALLBACK context_error_notification(char const *error_info, void const *private_info, std::size_t private_info_size, void *user_data)
+extern void CL_CALLBACK context_error_notification(char const *error_info, void const *private_info, size_t private_info_size, void *user_data)
 {
-    cerr << "Context error: " << error_info << endl;
+    cerr << "OpenCL Context error: " << error_info << endl;
 }
 
-void select_matching_platforms(cl::Platform &clPlatform, std::vector<PlatformDeviceSet> &userSelection, std::vector<PlatformDeviceSet *> &matchSelection)
+void select_matching_platforms(cl::Platform &clPlatform, vector<PlatformDeviceSet> &userSelection, vector<PlatformDeviceSet *> &matchSelection)
 {
     std::string
 	platform_name = trim_name(clPlatform.getInfo<CL_PLATFORM_NAME>()),
@@ -55,15 +63,15 @@ void select_matching_platforms(cl::Platform &clPlatform, std::vector<PlatformDev
 	version = trim_name(clPlatform.getInfo<CL_PLATFORM_VERSION>()),
 	icd_suffix = trim_name(clPlatform.getInfo<CL_PLATFORM_ICD_SUFFIX_KHR>());
 
-    for (auto str: std::array<std::string *, 4> { &platform_name, &vendor_name, &version, &icd_suffix })
-	std::transform(str->begin(), str->end(), str->begin(), std::bind(std::toupper<char>, std::placeholders::_1, std::locale()));
+    for (auto str: array<string *, 4> { &platform_name, &vendor_name, &version, &icd_suffix })
+	transform(str->begin(), str->end(), str->begin(), bind(toupper<char>, _1, locale()));
 
     matchSelection.clear();
 
-    for (auto &platformDeviceSet: userSelection) 
-	if (platform_name.find(platformDeviceSet.platformSelector) != std::string::npos ||
-	    vendor_name.find(platformDeviceSet.platformSelector) != std::string::npos ||
-	    version.find(platformDeviceSet.platformSelector) != std::string::npos ||
+    for (auto &platformDeviceSet: userSelection)
+	if (platform_name.find(platformDeviceSet.platformSelector) != string::npos ||
+	    vendor_name.find(platformDeviceSet.platformSelector) != string::npos ||
+	    version.find(platformDeviceSet.platformSelector) != string::npos ||
 	    icd_suffix == platformDeviceSet.platformSelector)
 	{
 	    matchSelection.push_back(&platformDeviceSet);
@@ -73,8 +81,8 @@ void select_matching_platforms(cl::Platform &clPlatform, std::vector<PlatformDev
 bool show_cl_platforms(CmdLineArgs::SelectionSet &platformSelection)
 {
     bool result = true;
-    std::vector<cl::Platform> clPlatforms;
-    std::vector<PlatformDeviceSet *> matchSelection;
+    vector<cl::Platform> clPlatforms;
+    vector<PlatformDeviceSet *> matchSelection;
 
     cl::Platform::get(&clPlatforms);
 
@@ -90,27 +98,27 @@ bool show_cl_platforms(CmdLineArgs::SelectionSet &platformSelection)
     }
     else
     {
-	std::vector<bool> listedPlatforms(clPlatforms.size());
+	vector<bool> listedPlatforms(clPlatforms.size());
 
 	for (PlatformDeviceSet &platformDeviceSet: platformSelection.platforms)
 	{
 	    for (size_t i = 0; i < clPlatforms.size(); i++)
 		if (!listedPlatforms[i])
 		{
-		    std::string
+		    string
 			platform_name = trim_name(clPlatforms[i].getInfo<CL_PLATFORM_NAME>()),
 			vendor_name = trim_name(clPlatforms[i].getInfo<CL_PLATFORM_VENDOR>()),
 			version = trim_name(clPlatforms[i].getInfo<CL_PLATFORM_VERSION>()),
 			icd_suffix = trim_name(clPlatforms[i].getInfo<CL_PLATFORM_ICD_SUFFIX_KHR>());
 
-		    for (auto str: std::array<std::string *, 4> { &platform_name, &vendor_name, &version, &icd_suffix })
-			std::transform(str->begin(), str->end(), str->begin(), std::bind(std::toupper<char>, std::placeholders::_1, std::locale()));
+		    for (auto str: array<string *, 4> { &platform_name, &vendor_name, &version, &icd_suffix })
+			transform(str->begin(), str->end(), str->begin(), bind(toupper<char>, _1, locale()));
 
-		    if (platform_name.find(platformDeviceSet.platformSelector) != std::string::npos
+		    if (platform_name.find(platformDeviceSet.platformSelector) != string::npos
 			    ||
-			vendor_name.find(platformDeviceSet.platformSelector) != std::string::npos
+			vendor_name.find(platformDeviceSet.platformSelector) != string::npos
 			    ||
-			version.find(platformDeviceSet.platformSelector) != std::string::npos
+			version.find(platformDeviceSet.platformSelector) != string::npos
 			    ||
 			icd_suffix == platformDeviceSet.platformSelector)
 		    {
@@ -254,7 +262,7 @@ try
     //         cout << endl;
     //     }
     // }
-	
+
     return result ? EXIT_SUCCESS : EXIT_FAILURE ;
 }
 catch(SyntaxError const &err)

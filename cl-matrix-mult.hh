@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <functional>
 #include <vector>
+#include <string>
 
 #if defined(__APPLE__) || defined(__MACOSX__)
 # include <OpenCL/cl2.hpp>
@@ -52,6 +53,9 @@ class Matrix
 
 	void waitForCompletion();
 };
+
+void CL_CALLBACK context_error_notification(char const *error_info, void const *private_info, size_t private_info_size, void *user_data);
+std::string readSourceFile(char const *file_name);
 
 template<>
     inline void Matrix::random_fill<cl_float>(cl::Buffer &outputBuffer, cl::size_type M, cl::size_type N, cl_float min_value, cl_float max_value)
