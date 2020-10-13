@@ -9,24 +9,24 @@ constant float g  = 9.81f;
 
 float4 stateDerivative(float4 private const *state)
 {
-	private float denom = 2 * m1 + m2 - m2 * cos(2 * state->x - 2 * state->y);
+	private float denom = 2 * m1 + m2 - m2 * cos(2 * (*state).x - 2 * (*state).y);
 
 	return (float4)
 		(
-			state->z,
-			state->w,
+			(*state).z,
+			(*state).w,
 
 			(
-				-g * (2 * m1 * m2) * sin(state->x)
+				-g * (2 * m1 * m2) * sin((*state).x)
 					-
-				m2 * g * sin(state->x - 2 * state->y)
+				m2 * g * sin((*state).x - 2 * (*state).y)
 					-
-				2 * sin(state->x - state->y) * m2 * ( state->w * state->w * L2 + state->z * state->z * L1 * cos(state->x - state->y))
+				2 * sin((*state).x - (*state).y) * m2 * ( (*state).w * (*state).w * L2 + (*state).z * (*state).z * L1 * cos((*state).x - (*state).y))
 			)
 				/
 			(L1 * denom),
 
-			2 * sin(state->x - state->y) * (state->z * state->z * L1 * (m1 + m2) + g * (m1 + m2) * cos(state->x) + state->w * state->w * L2 * m2 * cos(state->x - state->y))
+			2 * sin((*state).x - (*state).y) * ((*state).z * (*state).z * L1 * (m1 + m2) + g * (m1 + m2) * cos((*state).x) + (*state).w * (*state).w * L2 * m2 * cos((*state).x - (*state).y))
 				/
 			(L2 * denom)
 		);
@@ -50,8 +50,8 @@ void runRungeKuttaStep(float4 private *state)
 
 	*state += derivative_a;
 
-	state->x = fmod(state->x, 2 * M_PI_F);
-	state->y = fmod(state->y, 2 * M_PI_F);
+	(*state).x = fmod((*state).x, 2 * M_PI_F);
+	(*state).y = fmod((*state).y, 2 * M_PI_F);
 }
 
 kernel void doublePendulumSimulation(global float *result_matrix, unsigned long stepCount)
