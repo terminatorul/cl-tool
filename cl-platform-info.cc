@@ -689,7 +689,7 @@ static void show_cl_device_kernel(Device &device)
         candidate_core_count = group_size;
 
     Kernel doublePendulumKernel(program, "doublePendulumSimulation");
-    Buffer result(context, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, sizeof(cl_uchar) * candidate_core_count * 2 * device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * 4);
+    Buffer result(context, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, sizeof(cl_char) * candidate_core_count * 2 * device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * 4);
 
     KernelFunction<Buffer, cl_ulong> doublePendulumSimulation(doublePendulumKernel);
 
