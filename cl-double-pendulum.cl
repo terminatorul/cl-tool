@@ -54,7 +54,7 @@ void runRungeKuttaStep(float4 private *state)
 	state->y = fmod(state->y, 2 * M_PI_F);
 }
 
-kernel void doublePendulumSimulation(global float *result_matrix, unsigned long stepCount)
+kernel void doublePendulumSimulation(global uchar *result_matrix, unsigned long stepCount)
 {
 	float4 state;
 
@@ -76,6 +76,6 @@ kernel void doublePendulumSimulation(global float *result_matrix, unsigned long 
 	for (i = 0; i < stepCount; i++)
 		runRungeKuttaStep(&state);
 
-	result_matrix[get_global_id(0)] = state.x;
-	result_matrix[get_global_id(0)] = state.y;
+	result_matrix[get_global_id(0)] = state.x * 10;
+	// result_matrix[get_global_id(0)] = state.y;
 }
