@@ -646,13 +646,48 @@ static cl_command_queue create_command_queue(Context &context, Device &device)
     return cmd_queue;
 }
 
-static void show_cl_device_kernel(Device &device)
-{
-    array<cl_context_properties, 3> context_prop { CL_CONTEXT_PLATFORM, static_cast<cl_context_properties>(reinterpret_cast<intptr_t>(device.getInfo<CL_DEVICE_PLATFORM>())), 0 };
-    Context	 context(device, context_prop.data(), context_error_notification);
-    CommandQueue cmdQueue(create_command_queue(context, device));
-    Program      program(context, readSourceFile(benchmark_file_name), false);
 
+class DoublePendulumSimulation
+{
+protected:
+    using ClockT = std::conditional<high_resolution_clock::is_steady, high_resolution_clock, steady_clock>::type;
+
+    array<cl_context_properties, 3> context_prop;
+
+    Device	   &device;
+    Context	    context;
+    CommandQueue    cmdQueue;
+    Program	    program;
+    Kernel	    doublePendulumKernel;
+    Buffer	    result;
+
+public:
+    DoublePendulumSimulation(Device &device);
+    void build(size_t result_buffer_size);
+    void run_simulation(KernelFunction<Buffer, cl_ulong> &sim_fn, size_t, size_t, cl_ulong);
+
+    size_t groupSizeMultiple()
+    {
+	return doublePendulumKernel.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(device);;
+    }
+
+    Kernel &getKernel()
+    {
+	return doublePendulumKernel;
+    }
+};
+
+DoublePendulumSimulation::DoublePendulumSimulation(Device &device)
+    : device(device),
+	context_prop { CL_CONTEXT_PLATFORM, static_cast<cl_context_properties>(reinterpret_cast<intptr_t>(device.getInfo<CL_DEVICE_PLATFORM>())), 0 },
+	context(device, context_prop.data(), context_error_notification),
+	cmdQueue(create_command_queue(context, device)),
+	program(context, readSourceFile(benchmark_file_name), false)
+{
+}
+
+void DoublePendulumSimulation::build(size_t result_buffer_size)
+{
     try
     {
 	program.build();
@@ -677,83 +712,66 @@ static void show_cl_device_kernel(Device &device)
 	else
 	    cerr << "OpenCL error: " << error.what() << endl;
 
-	return;
+	throw;
     }
 
+    doublePendulumKernel = Kernel(program, "doublePendulumSimulation");
+    result = Buffer(context, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, result_buffer_size);
+}
+
+void DoublePendulumSimulation::run_simulation(KernelFunction<Buffer, cl_ulong> &sim_fn, size_t global_size, size_t local_size, cl_ulong candidate_step_count)
+{
+    static unsigned simulation_count = 0;
+
+    ClockT::time_point start_time = ClockT::now();
+    sim_fn(EnqueueArgs(cmdQueue, NDRange(0), NDRange(global_size), NDRange(local_size)), result, candidate_step_count); // * 1024ULL * 1024ULL);
+    cmdQueue.finish();
+    ClockT::time_point stop_time  = ClockT::now();
+    clog << "Kernel time " << ++simulation_count << " (" << setw(4) << global_size << '/' << local_size << "): " << duration_cast<milliseconds>(stop_time - start_time).count() << "ms" << endl;
+}
+
+static void show_cl_device_kernel(Device &device)
+{
+    DoublePendulumSimulation sim(device);
     auto group_size = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
 
-    size_t candidate_core_count = 2304;
-    cl_ulong candidate_step_count = 1*1024*1024;
+    size_t candidate_core_count = 24;
+    cl_ulong candidate_step_count = 128*1024;
 
     if (candidate_core_count > group_size)
         candidate_core_count = group_size;
 
-    Kernel doublePendulumKernel(program, "doublePendulumSimulation");
-    Buffer result(context, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, sizeof(cl_char) * candidate_core_count * 2 * device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * 4);
+    sim.build(sizeof(cl_char) * candidate_core_count * 8);
+    auto size_multiple = sim.groupSizeMultiple();
 
-    KernelFunction<Buffer, cl_ulong> doublePendulumSimulation(doublePendulumKernel);
+    // KernelFunction<Buffer, cl_ulong> sim_fn(sim.getKernel());
 
-    auto size_multiple = doublePendulumKernel.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(device);
+    // sim.run_simulation(sim_fn, size_multiple, size_multiple, candidate_step_count);
 
-    // using ClockT = std::conditional<high_resolution_clock::is_steady, high_resolution_clock, steady_clock>::type;
-    // ClockT::time_point start_time = ClockT::now();
-    // doublePendulumSimulation(EnqueueArgs(cmdQueue, NDRange(0), NDRange(32), NDRange(size_multiple)), result, candidate_step_count); // * 1024ULL * 1024ULL);
-    // if (cmdQueue.finish() != CL_SUCCESS)
-    //     cerr << "Command queue processing error!" << endl;
-    // ClockT::time_point stop_time  = ClockT::now();
-    // ostringstream str;
-    // static cl_float result_array[256];
+    // // ostringstream str;
+    // // static cl_float result_array[256];
 
-    // cmdQueue.enqueueReadBuffer(result, CL_TRUE, 0, sizeof result_array, &result_array);
+    // // cmdQueue.enqueueReadBuffer(result, CL_TRUE, 0, sizeof result_array, &result_array);
 
-    // cout << "Result values: ";
-    // for (auto pt: result_array)
-    //     cout << pt << ' ';
-    // cout << endl;
+    // // cout << "Result values: ";
+    // // for (auto pt: result_array)
+    // //     cout << pt << ' ';
+    // // cout << endl;
 
-    // clog << "Kernel time 1: " << duration_cast<milliseconds>(stop_time - start_time).count() << "ms" << endl;
+    // // sim.run_simulation(sim_fn, candidate_core_count, size_multiple, candidate_step_count);
+    // // sim.run_simulation(sim_fn, candidate_core_count + size_multiple, size_multiple, candidate_step_count);
+    // sim.run_simulation(sim_fn, 96 * size_multiple, size_multiple, candidate_step_count);
+    // sim.run_simulation(sim_fn, 144 * size_multiple, size_multiple, candidate_step_count);
+    // sim.run_simulation(sim_fn, 144 * size_multiple, size_multiple, candidate_step_count);
+    // sim.run_simulation(sim_fn, 166 * size_multiple, size_multiple, candidate_step_count);
+    // sim.run_simulation(sim_fn, 167 * size_multiple, size_multiple, candidate_step_count);
+    // sim.run_simulation(sim_fn, 168 * size_multiple, size_multiple, candidate_step_count);
+    // sim.run_simulation(sim_fn, 169 * size_multiple, size_multiple, candidate_step_count);
+    // sim.run_simulation(sim_fn, 170 * size_multiple, size_multiple, candidate_step_count);
+    // sim.run_simulation(sim_fn, 171 * size_multiple, size_multiple, candidate_step_count);
+    // sim.run_simulation(sim_fn, 172 * size_multiple, size_multiple, candidate_step_count);
 
-    // start_time = ClockT::now();
-    // Event cmdEvent = doublePendulumSimulation(EnqueueArgs(cmdQueue, NDRange(0), NDRange(size_multiple), NDRange(size_multiple)), result, candidate_step_count); // * 1024ULL * 1024ULL);
-
-    // cmdQueue.flush();
-
-    // while (cmdEvent.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() > CL_COMPLETE)
-    // {
-    //     clog << "Status: " << cmdEvent.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>();
-    //     sleep_for(milliseconds(250));
-    // }
-
-    // if (cmdQueue.finish() != CL_SUCCESS)
-    //     cerr << "Command queue processing error!" << endl;
-    // stop_time  = ClockT::now();
-    // clog << "Kernel time 2: " << duration_cast<milliseconds>(stop_time - start_time).count() << "ms" << endl;
-
-    // start_time = ClockT::now();
-    // // doublePendulumSimulation(EnqueueArgs(cmdQueue, NDRange(0), NDRange(192 + 32), NDRange(size_multiple)), result, candidate_step_count); // * 1024ULL * 1024ULL);
-    // if (cmdQueue.finish() != CL_SUCCESS)
-    //     cerr << "Command queue processing error!" << endl;
-    // stop_time  = ClockT::now();
-    // clog << "Kernel time 3: " << duration_cast<milliseconds>(stop_time - start_time).count() << "ms" << endl;
-
-    // start_time = ClockT::now();
-    // // doublePendulumSimulation(EnqueueArgs(cmdQueue, NDRange(0), NDRange(384), NDRange(size_multiple)), result, candidate_step_count); // * 1024ULL * 1024ULL);
-    // if (cmdQueue.finish() != CL_SUCCESS)
-    //     cerr << "Command queue processing error!" << endl;
-    // stop_time  = ClockT::now();
-    // clog << "Kernel time 4: " << duration_cast<milliseconds>(stop_time - start_time).count() << "ms" << endl;
-
-    // for (unsigned i = 0; i < 10; i++)
-    // {
-    //     start_time = ClockT::now();
-    //     doublePendulumSimulation(EnqueueArgs(cmdQueue, NDRange(0), NDRange(size_multiple), NDRange(size_multiple)), result, candidate_step_count); // * 1024ULL * 1024ULL);
-    //     if (cmdQueue.finish() != CL_SUCCESS)
-    //         cerr << "Command queue processing error!" << endl;
-    //     stop_time  = ClockT::now();
-    //     clog << "Kernel time 5: " << duration_cast<milliseconds>(stop_time - start_time).count() << "ms" << endl;
-    // }
-
-    cout << "\tGroup size multiple:    " << doublePendulumKernel.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(device) << endl;
+    cout << "\tGroup size multiple:    " << size_multiple << endl;
 }
 
 extern void show_cl_device(Device &device, bool showPlatform)
