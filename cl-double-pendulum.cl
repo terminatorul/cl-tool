@@ -76,6 +76,6 @@ kernel void doublePendulumSimulation(global char *result_matrix, unsigned long s
 	for (i = 0; i < stepCount; i++)
 		runRungeKuttaStep(&state);
 
-	result_matrix[get_global_id(0)] = state.x * 10;
-	// result_matrix[get_global_id(0)] = state.y;
+	if (get_global_id(0) % 128 == 0)
+		result_matrix[get_global_id(0) / 128] = state.x * 10;
 }

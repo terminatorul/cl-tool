@@ -664,7 +664,7 @@ protected:
 public:
     DoublePendulumSimulation(Device &device);
     void build(size_t result_buffer_size);
-    void run_simulation(KernelFunction<Buffer, cl_ulong> &sim_fn, size_t, size_t, cl_ulong);
+    unsigned long run_simulation(KernelFunction<Buffer, cl_ulong> &sim_fn, size_t, size_t, cl_ulong);
 
     size_t groupSizeMultiple()
     {
@@ -719,7 +719,7 @@ void DoublePendulumSimulation::build(size_t result_buffer_size)
     result = Buffer(context, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, result_buffer_size);
 }
 
-void DoublePendulumSimulation::run_simulation(KernelFunction<Buffer, cl_ulong> &sim_fn, size_t global_size, size_t local_size, cl_ulong candidate_step_count)
+unsigned long DoublePendulumSimulation::run_simulation(KernelFunction<Buffer, cl_ulong> &sim_fn, size_t global_size, size_t local_size, cl_ulong candidate_step_count)
 {
     static unsigned simulation_count = 0;
 
@@ -728,48 +728,52 @@ void DoublePendulumSimulation::run_simulation(KernelFunction<Buffer, cl_ulong> &
     cmdQueue.finish();
     ClockT::time_point stop_time  = ClockT::now();
     clog << "Kernel time " << ++simulation_count << " (" << setw(4) << global_size << '/' << local_size << "): " << duration_cast<milliseconds>(stop_time - start_time).count() << "ms" << endl;
+
+    return static_cast<unsigned long>(duration_cast<milliseconds>(stop_time - start_time).count());
 }
 
 static void show_cl_device_kernel(Device &device)
 {
     DoublePendulumSimulation sim(device);
-    auto group_size = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
 
-    size_t candidate_core_count = 24;
-    cl_ulong candidate_step_count = 128*1024;
+    size_t candidate_core_count = 2304U;
+    cl_ulong candidate_step_count = 256*1024;
 
-    if (candidate_core_count > group_size)
-        candidate_core_count = group_size;
-
-    sim.build(sizeof(cl_char) * candidate_core_count * 8);
+    sim.build(sizeof(cl_char) * candidate_core_count * 64);
     auto size_multiple = sim.groupSizeMultiple();
 
     // KernelFunction<Buffer, cl_ulong> sim_fn(sim.getKernel());
 
-    // sim.run_simulation(sim_fn, size_multiple, size_multiple, candidate_step_count);
+    // unsigned long counts[512], times[512];
+    // unsigned long prev_sim_time = sim.run_simulation(sim_fn, 1 * size_multiple, size_multiple, candidate_step_count);
 
-    // // ostringstream str;
-    // // static cl_float result_array[256];
+    // for (unsigned n = 1; n <= 512; n++)
+    // {
+    //     cout << "Multiple: " << n << endl;
 
-    // // cmdQueue.enqueueReadBuffer(result, CL_TRUE, 0, sizeof result_array, &result_array);
+    //     // sim.run_simulation(sim_fn, (n - 1) * candidate_core_count + size_multiple, size_multiple, candidate_step_count);
+    //     // sim.run_simulation(sim_fn, n * candidate_core_count - size_multiple, size_multiple, candidate_step_count);
+    //     unsigned long sim_time = sim.run_simulation(sim_fn, n * size_multiple, size_multiple, candidate_step_count);
 
-    // // cout << "Result values: ";
-    // // for (auto pt: result_array)
-    // //     cout << pt << ' ';
-    // // cout << endl;
+    //     // if (prev_sim_time)
+    //     //     cout << "Increase: " << (sim_time - prev_sim_time) * 100 / sim_time << '%' << endl;
 
-    // // sim.run_simulation(sim_fn, candidate_core_count, size_multiple, candidate_step_count);
-    // // sim.run_simulation(sim_fn, candidate_core_count + size_multiple, size_multiple, candidate_step_count);
-    // sim.run_simulation(sim_fn, 96 * size_multiple, size_multiple, candidate_step_count);
-    // sim.run_simulation(sim_fn, 144 * size_multiple, size_multiple, candidate_step_count);
-    // sim.run_simulation(sim_fn, 144 * size_multiple, size_multiple, candidate_step_count);
-    // sim.run_simulation(sim_fn, 166 * size_multiple, size_multiple, candidate_step_count);
-    // sim.run_simulation(sim_fn, 167 * size_multiple, size_multiple, candidate_step_count);
-    // sim.run_simulation(sim_fn, 168 * size_multiple, size_multiple, candidate_step_count);
-    // sim.run_simulation(sim_fn, 169 * size_multiple, size_multiple, candidate_step_count);
-    // sim.run_simulation(sim_fn, 170 * size_multiple, size_multiple, candidate_step_count);
-    // sim.run_simulation(sim_fn, 171 * size_multiple, size_multiple, candidate_step_count);
-    // sim.run_simulation(sim_fn, 172 * size_multiple, size_multiple, candidate_step_count);
+    //     prev_sim_time = sim_time;
+    //     counts[n - 1] = static_cast<unsigned long>(n * size_multiple);
+    //     times[n - 1] = static_cast<unsigned long>(sim_time);
+
+    //     cout << endl;
+    // }
+
+    // cout << "Counts: [ ";
+    // for (auto val: counts)
+    //     cout << val << ", ";
+    // cout << "\b ]" << endl;
+
+    // cout << "Times: [";
+    // for (auto val: times)
+    //     cout << val << ", ";
+    // cout << "\b ]" << endl;
 
     cout << "\tGroup size multiple:    " << size_multiple << endl;
 }
