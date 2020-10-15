@@ -13,6 +13,7 @@
 #include <sstream>
 #include <iostream>
 #include <iomanip>
+#include <thread>
 
 #include "cl-matrix-mult.hh"
 #include "cl-platform-info.hh"
@@ -41,10 +42,11 @@ using std::toupper;
 using std::locale;
 using std::placeholders::_1;
 using std::conditional;
+using std::this_thread::sleep_for;
 using std::chrono::steady_clock;
 using std::chrono::high_resolution_clock;
 using std::chrono::duration_cast;
-using std::chrono::microseconds;
+using std::chrono::milliseconds;
 
 using cl::Error;
 using cl::Context;
@@ -55,6 +57,7 @@ using cl::CommandQueue;
 using cl::Buffer;
 using cl::NDRange;
 using cl::EnqueueArgs;
+using cl::Event;
 
 #if defined(CL_HPP_PARAM_NAME_INFO_1_0_)
     template <typename... Ts>
@@ -677,30 +680,78 @@ static void show_cl_device_kernel(Device &device)
 	return;
     }
 
-    // auto group_size = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
+    auto group_size = device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>();
 
-    // size_t candidate_core_count = 256U;
+    size_t candidate_core_count = 2304;
+    cl_ulong candidate_step_count = 1*1024*1024;
 
-    // if (candidate_core_count > group_size)
-    //     candidate_core_count = group_size;
+    if (candidate_core_count > group_size)
+        candidate_core_count = group_size;
 
     Kernel doublePendulumKernel(program, "doublePendulumSimulation");
-    // Buffer result(context, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, sizeof(cl_float) * candidate_core_count * 2 * device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * 2);
+    Buffer result(context, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, sizeof(cl_char) * candidate_core_count * 2 * device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() * 4);
 
     KernelFunction<Buffer, cl_ulong> doublePendulumSimulation(doublePendulumKernel);
 
+    auto size_multiple = doublePendulumKernel.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(device);
+
     // using ClockT = std::conditional<high_resolution_clock::is_steady, high_resolution_clock, steady_clock>::type;
     // ClockT::time_point start_time = ClockT::now();
-    // doublePendulumSimulation(EnqueueArgs(cmdQueue, NDRange(0), NDRange(candidate_core_count * device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()), NDRange(candidate_core_count)), result, 1024 * 1024U);
-    // cmdQueue.finish();
+    // doublePendulumSimulation(EnqueueArgs(cmdQueue, NDRange(0), NDRange(32), NDRange(size_multiple)), result, candidate_step_count); // * 1024ULL * 1024ULL);
+    // if (cmdQueue.finish() != CL_SUCCESS)
+    //     cerr << "Command queue processing error!" << endl;
     // ClockT::time_point stop_time  = ClockT::now();
-    // clog << "Kernel time 1: " << duration_cast<microseconds>(stop_time - start_time).count() << "us" << endl;
+    // ostringstream str;
+    // static cl_float result_array[256];
+
+    // cmdQueue.enqueueReadBuffer(result, CL_TRUE, 0, sizeof result_array, &result_array);
+
+    // cout << "Result values: ";
+    // for (auto pt: result_array)
+    //     cout << pt << ' ';
+    // cout << endl;
+
+    // clog << "Kernel time 1: " << duration_cast<milliseconds>(stop_time - start_time).count() << "ms" << endl;
 
     // start_time = ClockT::now();
-    // doublePendulumSimulation(EnqueueArgs(cmdQueue, NDRange(0), NDRange(candidate_core_count * device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()), NDRange(candidate_core_count)), result, 1024 * 1024U);
-    // cmdQueue.finish();
+    // Event cmdEvent = doublePendulumSimulation(EnqueueArgs(cmdQueue, NDRange(0), NDRange(size_multiple), NDRange(size_multiple)), result, candidate_step_count); // * 1024ULL * 1024ULL);
+
+    // cmdQueue.flush();
+
+    // while (cmdEvent.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>() > CL_COMPLETE)
+    // {
+    //     clog << "Status: " << cmdEvent.getInfo<CL_EVENT_COMMAND_EXECUTION_STATUS>();
+    //     sleep_for(milliseconds(250));
+    // }
+
+    // if (cmdQueue.finish() != CL_SUCCESS)
+    //     cerr << "Command queue processing error!" << endl;
     // stop_time  = ClockT::now();
-    // clog << "Kernel time 2: " << duration_cast<microseconds>(stop_time - start_time).count() << "us" << endl;
+    // clog << "Kernel time 2: " << duration_cast<milliseconds>(stop_time - start_time).count() << "ms" << endl;
+
+    // start_time = ClockT::now();
+    // // doublePendulumSimulation(EnqueueArgs(cmdQueue, NDRange(0), NDRange(192 + 32), NDRange(size_multiple)), result, candidate_step_count); // * 1024ULL * 1024ULL);
+    // if (cmdQueue.finish() != CL_SUCCESS)
+    //     cerr << "Command queue processing error!" << endl;
+    // stop_time  = ClockT::now();
+    // clog << "Kernel time 3: " << duration_cast<milliseconds>(stop_time - start_time).count() << "ms" << endl;
+
+    // start_time = ClockT::now();
+    // // doublePendulumSimulation(EnqueueArgs(cmdQueue, NDRange(0), NDRange(384), NDRange(size_multiple)), result, candidate_step_count); // * 1024ULL * 1024ULL);
+    // if (cmdQueue.finish() != CL_SUCCESS)
+    //     cerr << "Command queue processing error!" << endl;
+    // stop_time  = ClockT::now();
+    // clog << "Kernel time 4: " << duration_cast<milliseconds>(stop_time - start_time).count() << "ms" << endl;
+
+    // for (unsigned i = 0; i < 10; i++)
+    // {
+    //     start_time = ClockT::now();
+    //     doublePendulumSimulation(EnqueueArgs(cmdQueue, NDRange(0), NDRange(size_multiple), NDRange(size_multiple)), result, candidate_step_count); // * 1024ULL * 1024ULL);
+    //     if (cmdQueue.finish() != CL_SUCCESS)
+    //         cerr << "Command queue processing error!" << endl;
+    //     stop_time  = ClockT::now();
+    //     clog << "Kernel time 5: " << duration_cast<milliseconds>(stop_time - start_time).count() << "ms" << endl;
+    // }
 
     cout << "\tGroup size multiple:    " << doublePendulumKernel.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(device) << endl;
 }
@@ -757,6 +808,28 @@ extern void show_cl_device(Device &device, bool showPlatform)
     // cout << "\tprintf buffer size:     " << memory_size_str(device.getInfo<CL_DEVICE_PRINTF_BUFFER_SIZE>(), true) << endl;
     cout << "\tLittle endian:          " << (device.getInfo<CL_DEVICE_ENDIAN_LITTLE>() ? "[x]" : "[ ]") << endl;
     cout << "\tCompute units:          " << device.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>() << endl;
+    cout << "\tWork group size:        " << dimension_size_str(device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>()) << endl;
+    cout << "\tWork item dimensions:   " << list_values(device.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>(), true) << endl;
+
+    if
+	(
+	    device.getInfo<CL_DEVICE_AVAILABLE>()
+		&&
+	    device.getInfo<CL_DEVICE_COMPILER_AVAILABLE>()
+		&&
+	    [&device] () -> bool
+	    {
+		cl_bool has_linker;
+		device.getInfo(CL_DEVICE_LINKER_AVAILABLE, &has_linker);
+
+		return has_linker;
+	    }()
+	)
+    {
+	show_cl_device_kernel(device);
+    }
+
+    cout << "\tCompute Unit memory:    " << memory_size_str(device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>()) << ' ' << (device.getInfo<CL_DEVICE_LOCAL_MEM_TYPE>() == CL_LOCAL ? "local memory" : "global memory") << endl;
     cout << "\tPartition properties:   " << list_partitions(device.getInfo<CL_DEVICE_PARTITION_PROPERTIES>()) << endl;
 
     if ([&device](std::vector<cl_device_partition_property> const &cont) -> bool
@@ -781,28 +854,6 @@ extern void show_cl_device(Device &device, bool showPlatform)
         }() << endl;
     }
 
-    cout << "\tCompute Unit memory:    " << memory_size_str(device.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>()) << ' ' << (device.getInfo<CL_DEVICE_LOCAL_MEM_TYPE>() == CL_LOCAL ? "local memory" : "global memory") << endl;
-
-    if
-	(
-	    device.getInfo<CL_DEVICE_AVAILABLE>()
-		&&
-	    device.getInfo<CL_DEVICE_COMPILER_AVAILABLE>()
-		&&
-	    [&device] () -> bool
-	    {
-		cl_bool has_linker;
-		device.getInfo(CL_DEVICE_LINKER_AVAILABLE, &has_linker);
-
-		return has_linker;
-	    }()
-	)
-    {
-	show_cl_device_kernel(device);
-    }
-
-    cout << "\tMax work group size:    " << dimension_size_str(device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>()) << endl;
-    cout << "\tWork item dimensions:   " << list_values(device.getInfo<CL_DEVICE_MAX_WORK_ITEM_SIZES>(), true) << endl;
     cout << "\tExecution queue flags:  " << list_queue_props(device.getInfo<CL_DEVICE_QUEUE_PROPERTIES>()) << endl;
     cout << "\tExecution capabilities: " << list_capabilities(device.getInfo<CL_DEVICE_EXECUTION_CAPABILITIES>()) << endl;
 #if (CL_HPP_TARGET_OPENCL_VERSION >= 120)
@@ -836,12 +887,13 @@ extern void show_cl_device(Device &device, bool showPlatform)
 
     if (list_all || has_type_half)
         cout << "\tHalf float config:      " << ((has_type_half) ? list_float_support(device.getInfo<CL_DEVICE_HALF_FP_CONFIG>(), false) : "-") << endl;
+
+    cout << "\tSingle float config:    " << list_float_support(device.getInfo<CL_DEVICE_SINGLE_FP_CONFIG>(), true) << endl;
+
     if (list_all || has_type_double)
         cout << "\tDouble float config:    " << list_float_support(device.getInfo<CL_DEVICE_DOUBLE_FP_CONFIG>(), false) << endl;
     else
         cout << "\tDouble float config:    -" << endl;
-
-    cout << "\tSingle float config:    " << list_float_support(device.getInfo<CL_DEVICE_SINGLE_FP_CONFIG>(), true) << endl;
 
     cout << "\tImage support:          " << (device.getInfo<CL_DEVICE_IMAGE_SUPPORT>() ? "[x]" : "[ ]") << endl;
 
