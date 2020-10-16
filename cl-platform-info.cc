@@ -638,7 +638,7 @@ static char const benchmark_file_name[] = "./cl-double-pendulum.cl";
 static cl_command_queue create_command_queue(Context &context, Device &device)
 {
     cl_int cmd_queue_error = 0;
-    cl_command_queue cmd_queue = clCreateCommandQueue(context(), device(), 0, &cmd_queue_error);
+    cl_command_queue cmd_queue = clCreateCommandQueue(context(), device(), CL_QUEUE_PROFILING_ENABLE, &cmd_queue_error);
 
     if (cmd_queue == 0)
 	throw cl::Error(cmd_queue_error, "Create command queue failed");
@@ -724,12 +724,13 @@ unsigned long DoublePendulumSimulation::run_simulation(KernelFunction<Buffer, cl
     static unsigned simulation_count = 0;
 
     ClockT::time_point start_time = ClockT::now();
-    sim_fn(EnqueueArgs(cmdQueue, NDRange(0), NDRange(global_size), NDRange(local_size)), result, candidate_step_count); // * 1024ULL * 1024ULL);
+    Event fn_event = sim_fn(EnqueueArgs(cmdQueue, NDRange(0), NDRange(global_size), NDRange(local_size)), result, candidate_step_count); // * 1024ULL * 1024ULL);
     cmdQueue.finish();
     ClockT::time_point stop_time  = ClockT::now();
     clog << "Kernel time " << ++simulation_count << " (" << setw(4) << global_size << '/' << local_size << "): " << duration_cast<milliseconds>(stop_time - start_time).count() << "ms" << endl;
 
     return static_cast<unsigned long>(duration_cast<milliseconds>(stop_time - start_time).count());
+    return static_cast<unsigned long>((fn_event.getProfilingInfo<CL_PROFILING_COMMAND_END>() - fn_event.getProfilingInfo<CL_PROFILING_COMMAND_START>() + 500000UL) / 1000000UL);
 }
 
 static void show_cl_device_kernel(Device &device)
@@ -737,7 +738,7 @@ static void show_cl_device_kernel(Device &device)
     DoublePendulumSimulation sim(device);
 
     size_t candidate_core_count = 2304U;
-    cl_ulong candidate_step_count = 64U * 1024U;
+    cl_ulong candidate_step_count = 4U * 1024U;
 
     sim.build(sizeof(cl_char) * candidate_core_count * 64);
     auto size_multiple = sim.groupSizeMultiple();
