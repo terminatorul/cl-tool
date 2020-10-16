@@ -737,7 +737,7 @@ static void show_cl_device_kernel(Device &device)
     DoublePendulumSimulation sim(device);
 
     size_t candidate_core_count = 2304U;
-    cl_ulong candidate_step_count = 256*1024;
+    cl_ulong candidate_step_count = 64U * 1024U;
 
     sim.build(sizeof(cl_char) * candidate_core_count * 64);
     auto size_multiple = sim.groupSizeMultiple();
@@ -765,15 +765,15 @@ static void show_cl_device_kernel(Device &device)
     //     cout << endl;
     // }
 
-    // cout << "Counts: [ ";
+    // cout << "Counts: [ 0";
     // for (auto val: counts)
-    //     cout << val << ", ";
-    // cout << "\b ]" << endl;
+    //     cout << ", " << val;
+    // cout << " ]" << endl;
 
-    // cout << "Times: [";
+    // cout << "Times: [ 0";
     // for (auto val: times)
-    //     cout << val << ", ";
-    // cout << "\b ]" << endl;
+    //     cout << ", " << val;
+    // cout << " ]" << endl;
 
     cout << "\tGroup size multiple:    " << size_multiple << endl;
 }
