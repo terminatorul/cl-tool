@@ -3,6 +3,7 @@
 
 #include <stdexcept>
 #include <vector>
+#include <map>
 #include <string>
 
 #include "cl-platform-info.hh"
@@ -14,30 +15,36 @@ class SyntaxError: public std::runtime_error
 	SyntaxError(char const *msg);
 	SyntaxError(std::string const &msg);
 
-	static void ShowSyntax(char const *cmd_name);
+	static void showSyntax(char const *cmd_name);
 };
 
 struct CmdLineArgs
 {
-    struct SelectionSet
-    {
-	bool all_platforms = false, all_devices = false;
-	std::vector<PlatformDeviceSet> platforms;
-    }
-	list, probe;
+    typedef std::vector<std::pair<char const *, std::vector<char const *>>> SelectionSet;
+
+    SelectionSet listSet, probeSet;
 
     bool show_defaults = false;
+    bool opencl_order = false;
+    bool exact_match = false;
     void parse(char const * const argv[]);
 
 protected:
     enum { ReadActions, ReadPlatform, ReadDevices } state = ReadActions;
-    bool listAction = false, probeAction = false, allDevices = false;
+    bool listAction = false, probeAction = false;
     char const *platform = nullptr;
     std::vector<char const *> devices;
 
-    void startSelection(bool resetActions = false);
-    void newAction(SelectionSet &selectionSet, char const *platform, bool all_devices, std::vector<char const *> const &devices);
-    void newAction();
+    void restartParser(bool resetActions = false);
+    void newCommand(SelectionSet &selectionSet, bool clearDevices);
+    void flushPendingCommand();
+
+    char const * const *parseGlobalOptions(char const * const argv[]);
+    char const * const *parsePlatformActions(char const * const argv[]);
+    char const * const *parsePlatformSelection(char const * const argv[]);
+    char const * const *parsePlatfromDevices(char const * const argv[]);
+    char const * const *parsePlatformCommand(char const * const argv[]);
+    char const * const *parseCompleted(char const * const argv[]);
 };
 
 inline SyntaxError::SyntaxError()

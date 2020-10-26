@@ -2,13 +2,19 @@
 #include <iostream>
 #include <algorithm>
 #include <functional>
+#include <utility>
+#include <vector>
+#include <string>
 
 #include "parse-cmd-line.hh"
 
 using std::cerr;
 using std::endl;
+using std::vector;
+using std::pair;
+using std::string;
 
-void SyntaxError::ShowSyntax(char const *cmd_name)
+void SyntaxError::showSyntax(char const *cmd_name)
 {
     cerr << "Syntax:" << endl;
     cerr << "\t" << cmd_name << " [ --include-defaults ]" << endl;
@@ -46,6 +52,14 @@ void SyntaxError::ShowSyntax(char const *cmd_name)
     cerr << "\t     Include device details and extensions that are pre-defined for any OpenCL 1.2 device. By default" << endl;
     cerr << "\t     pre-defined values are not shown to simplify the output." << endl;
     cerr << endl;
+    cerr << "\t[--opencl-order]" << endl;
+    cerr << "\t     Keep platform and device order as reported by OpenCL. By default the order from the command line" << endl;
+    cerr << "\t     is used, as the OpenCL order is not meant to be significant." << endl;
+    cerr << endl;
+    cerr << "\t[--exact-match]" << endl;
+    cerr << "\t     Match platfom and device name exactly. By default names on the command line can be substrings or" << endl;
+    cerr << "\t     prefixes of the OpenCL reported names." << endl;
+    cerr << endl;
     cerr << "The platform and device names can also be substrings or prefixes thereof. You can list and probe several" << endl;
     cerr << "platforms and devices with multiple options. Option order is significant, specify the platform before the" << endl;
     cerr << "device(s)." << endl;
@@ -58,42 +72,30 @@ void SyntaxError::ShowSyntax(char const *cmd_name)
     cerr << endl;
 }
 
-void CmdLineArgs::newAction(SelectionSet &selectionSet, char const *platform, bool allDevices, std::vector<char const *> const &devices)
+void CmdLineArgs::newCommand(vector<pair<char const *, vector<char const *>>> &selectionSet, bool clearDevices)
 {
-    if (platform)
-    {
-	selectionSet.platforms.emplace_back();
-	PlatformDeviceSet &deviceSet = *selectionSet.platforms.rbegin();
-
-	deviceSet.platformSelector = platform;
-	std::transform(deviceSet.platformSelector.begin(), deviceSet.platformSelector.end(), deviceSet.platformSelector.begin(),
-		std::bind(std::toupper<char>, std::placeholders::_1, std::locale()));
-	deviceSet.platformUsage = false;
-	deviceSet.allDevices = allDevices;
-	deviceSet.devices.assign(devices.cbegin(), devices.cend());
-	for (auto &device: deviceSet.devices)
-	    std::transform(device.begin(), device.end(), device.begin(), std::bind(std::toupper<char>, std::placeholders::_1, std::locale()));
-	deviceSet.deviceUsage.resize(devices.size());
-    }
+    selectionSet.emplace_back(platform, vector<char const *>());
+    if (clearDevices)
+	selectionSet.rbegin()->second.swap(devices);
     else
-    {
-	selectionSet.all_platforms = true;
-
-	if (allDevices)
-	    selectionSet.all_devices = true;
-    }
+	selectionSet.rbegin()->second = devices;
 }
 
-void CmdLineArgs::newAction()
+void CmdLineArgs::flushPendingCommand()
 {
     if (listAction)
-	newAction(list, platform, allDevices, devices);
+	newCommand(listSet, !probeAction);
 
     if (probeAction)
-	newAction(probe, platform, allDevices, devices);
+    {
+	if (devices.empty())
+	    devices.push_back(nullptr);
+
+	newCommand(probeSet, true);
+    }
 }
 
-void CmdLineArgs::startSelection(bool resetActions)
+void CmdLineArgs::restartParser(bool resetActions)
 {
     if (resetActions)
     {
@@ -101,150 +103,228 @@ void CmdLineArgs::startSelection(bool resetActions)
 	probeAction = false;
     }
 
-    allDevices = false;
     platform = nullptr;
     devices.clear();
 
     state = ReadActions;
 }
 
+char const * const *CmdLineArgs::parseGlobalOptions(char const * const argv[])
+{
+    if
+	(
+	    !strncmp("-h",	argv[0], sizeof "-h")
+		||
+	    !strncmp("--help",  argv[0], sizeof "--help")
+		||
+	    !strncmp("--usage", argv[0], sizeof "--usage")
+	)
+    {
+	throw SyntaxError();
+    }
+
+    if (!strncmp("--include-defaults", argv[0], sizeof "--include-defaults"))
+    {
+	show_defaults = true;
+	argv++;
+    }
+
+    if (argv[0] && !strncmp("--opencl-order", argv[0], sizeof "--opencl-order"))
+    {
+	opencl_order = true;
+	argv++;
+    }
+
+    if (argv[0] && !strncmp("--exact-match", argv[0], sizeof "--exact-match"))
+    {
+	exact_match = true;
+	argv++;
+    }
+
+    return argv;
+}
+
+char const * const *CmdLineArgs::parsePlatformActions(char const * const argv[])
+{
+    if (!strncmp("--probe", argv[0], sizeof "--probe"))
+    {
+	if (state != ReadActions)
+	{
+	    flushPendingCommand();
+	    restartParser(true);
+	}
+
+	probeAction = true;
+	argv++;
+    }
+
+    if (argv[0] && !strncmp("--list", argv[0], sizeof "--list"))
+    {
+	if (state != ReadActions)
+	{
+	    flushPendingCommand();
+	    restartParser(true);
+	}
+
+	listAction = true;
+
+	argv++;
+    }
+
+    return argv;
+}
+
+char const * const *CmdLineArgs::parsePlatformSelection(char const * const argv[])
+{
+    if (!strncmp("--platforms", argv[0], sizeof "--platforms"))
+    {
+	switch (state)
+	{
+	case ReadActions:
+	    if (!(listAction || probeAction))
+		listAction = true;
+	    break;
+	case ReadPlatform:
+	    break;
+	case ReadDevices:
+	    flushPendingCommand();
+	    restartParser();
+	    break;
+	}
+
+	state = ReadDevices;
+
+	argv++;
+    }
+
+    if (argv[0] && !strncmp("--platform", argv[0], sizeof "--platform"))
+    {
+	switch (state)
+	{
+	case ReadActions:
+	    if (!(listAction || probeAction))
+		listAction = true;
+	    break;
+	case ReadPlatform:
+	    break;
+	case ReadDevices:
+	    flushPendingCommand();
+	    restartParser();
+	    break;
+	}
+
+	argv++;
+
+	if (argv[0])
+	{
+	    platform = argv[0];
+	    state = ReadDevices;
+	}
+	else
+	    throw SyntaxError("Missing platform name after \"--platform\" argument.");
+
+	argv++;
+    }
+
+    return argv;
+}
+
+char const * const *CmdLineArgs::parsePlatfromDevices(char const * const argv[])
+{
+    if (!strncmp("--devices", argv[0], sizeof "--devices"))
+    {
+	switch (state)
+	{
+	case ReadActions:
+	    if (!(listAction || probeAction))
+		listAction = true;
+	    state = ReadDevices;
+	    break;
+	case ReadPlatform:
+	    state = ReadDevices;
+	    break;
+	case ReadDevices:
+	    break;
+	}
+
+	devices.push_back(nullptr);
+
+	argv++;
+    }
+
+    if (argv[0] && !strncmp("--device", argv[0], sizeof "--device"))
+    {
+	switch (state)
+	{
+	case ReadActions:
+	    if (!(listAction || probeAction))
+		listAction = true;
+	    state = ReadDevices;
+	    break;
+	case ReadPlatform:
+	    state = ReadDevices;
+	    break;
+	case ReadDevices:
+	    break;
+	}
+
+	argv++;
+
+	if (argv[0])
+	{
+	    devices.push_back(argv[0]);
+	    argv++;
+	}
+	else
+	    throw SyntaxError("Command line option " + string(argv[0]) + " missing device name argument.");
+    }
+
+    return argv;
+}
+
+char const * const *CmdLineArgs::parsePlatformCommand(char const * const argv[])
+{
+    if (argv[0])
+    {
+	argv = parsePlatformActions(argv);
+
+	if (argv[0])
+	{
+	    argv = parsePlatformSelection(argv);
+
+	    if (argv[0])
+		argv = parsePlatfromDevices(argv);
+	}
+    }
+
+    return argv;
+}
+
+char const * const *CmdLineArgs::parseCompleted(char const * const argv[])
+{
+    if (!probeAction && !listAction)
+	probeAction = true;
+
+    flushPendingCommand();
+
+    return argv;
+}
+
 void CmdLineArgs::parse(char const * const argv[])
 {
     while (argv[0])
     {
-	char const *arg = argv[0];
+	char const * const *arg = parseGlobalOptions(argv);
 
-	if (!strncmp("-h", arg, sizeof "-h") || !strncmp("--help", arg, sizeof "--help") || !strncmp("--usage", arg, sizeof "--usage"))
-	    throw SyntaxError();
+	if (arg[0])
+	    arg = parsePlatformCommand(arg);
 
-        if (!strncmp("--include-defaults", arg, sizeof "--include-defaults"))
-        {
-            show_defaults = true;
 
-            argv++;
-            continue;
-        }
-
-	if (!strncmp("--probe", arg, sizeof "--probe"))
-	{
-	    if (state != ReadActions)
-	    {
-		newAction();
-		startSelection(true);
-	    }
-
-	    probeAction = true;
-
-	    argv++;
-	    continue;
-	}
-
-	if (!strncmp("--list", arg, sizeof "--list"))
-	{
-	    if (state != ReadActions)
-	    {
-		newAction();
-		startSelection(true);
-	    }
-
-	    listAction = true;
-
-	    argv++;
-	    continue;
-	}
-
-	if (!strncmp("--platforms", arg, sizeof "--platforms"))
-	{
-	    switch (state)
-	    {
-	    case ReadActions:
-		if (!(listAction || probeAction))
-		    listAction = true;
-		break;
-	    case ReadPlatform:
-		break;
-	    case ReadDevices:
-		newAction();
-		startSelection();
-		break;
-	    }
-
-	    platform = nullptr;
-	    state = ReadDevices;
-
-	    argv++;
-	    continue;
-	}
-
-	if (!strncmp("--platform", arg, sizeof "--platform"))
-	{
-	    switch (state)
-	    {
-	    case ReadActions:
-		if (!(listAction || probeAction))
-		    listAction = true;
-		break;
-	    case ReadPlatform:
-		break;
-	    case ReadDevices:
-		newAction();
-		startSelection();
-		break;
-	    }
-
-	    argv++;
-
-	    if (argv[0])
-	    {
-		platform = argv[0];
-		state = ReadDevices;
-	    }
-	    else
-		throw SyntaxError("Missing platform name after \"--platform\" argument.");
-
-	    argv++;
-	    continue;
-	}
-
-	if (!strncmp("--devices", arg, sizeof "--devices"))
-	{
-	    if (state != ReadDevices)
-		throw SyntaxError("Specify actions (\"--list\" and/or \"--probe\") and \"--platform\" before device name.");
-	    
-	    allDevices = true;
-
-	    argv++;
-	    continue;
-	}
-
-	if (!strncmp("--device", arg, sizeof "--device"))
-	{
-	    if (state != ReadDevices)
-		throw SyntaxError("Specify actions (\"--list\"/\"--probe\") and \"--platform\" before device name.");
-
-	//     if (allDevices)
-	// 	throw SyntaxError("Ambigous device selection, use either \"--devices\", either \"--device Name\".");
-
-	    if (!platform)
-		throw SyntaxError("Specify a platform name with \"--platform\" before using \"--device\".");
-
-	    argv++;
-
-	    if (argv[0])
-		devices.push_back(argv[0]);
-	    else
-		throw SyntaxError("Command line option " + std::string(arg) + " missing device name argument.");
-
-	    argv++;
-	    continue;
-	}
-
-	throw SyntaxError("Unknown command line option " + std::string(arg));
+	if (arg == argv)
+	    throw SyntaxError("Unknown command line option " + string(argv[0]));
+	else
+	    argv = arg;
     }
 
-    if (!probeAction && !listAction)
-	probeAction = true;
-
-    newAction();
+    parseCompleted(argv);
 }
-

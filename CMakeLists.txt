@@ -27,7 +27,20 @@ set(OPENCL_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/OpenCL-Headers")
 set(OPENCL2_HPP_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/OpenCL-Headers")
 set(OPENCL_LIBRARIES OpenCL)
 
-set(CL_TOOL_SOURCES parse-cmd-line.hh parse-cmd-line.cc cl-matrix-mult.hh cl-matrix-mult.cc cl-platform-info.hh cl-platform-info.cc cl-tool.cc)
+set(CL_TOOL_SOURCES
+	parse-cmd-line.hh
+	parse-cmd-line.cc
+	cl-matrix-mult.hh
+	cl-matrix-mult.cc
+	cl-double-pendulum.hh
+	cl-double-pendulum.cc
+	cl-platform-info.hh
+	cl-platform-info.cc
+	cl-platform-probe.hh
+	cl-platform-probe.cc
+	cl-user-selection.hh
+	cl-user-selection.cc
+	cl-tool.cc)
 set(CL_TOOL_TARGET_SOURCES cl-matrix-rand.cl cl-double-pendulum.cl)
 
 add_executable(cl-tool ${CL_TOOL_SOURCES})

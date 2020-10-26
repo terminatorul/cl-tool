@@ -12,21 +12,11 @@
 # include <CL/cl2.hpp>
 #endif
 
-struct PlatformDeviceSet
-{
-    std::string platformSelector;
-    bool platformUsage;
-
-    bool allDevices;
-    std::vector<std::string> devices;
-    std::vector<bool> deviceUsage;
-};
-
 extern char const *error_string(cl_int err);
 extern bool list_all;
 std::string trim_name(std::string name);
-extern void show_cl_device(cl::Device &device, bool showPlatform = false);
-extern void show_cl_platform(cl::Platform &platform, bool all_devices, std::vector<PlatformDeviceSet *> &device_list);
+extern void show_cl_device(cl::Device &device);
+extern void show_cl_platform(cl::Platform &platform, cl::vector<cl::Device> &devices);
 extern bool has_extension(std::string const &ext_list, char const *ext, std::size_t length);
 
 template <typename CharT, std::size_t length>

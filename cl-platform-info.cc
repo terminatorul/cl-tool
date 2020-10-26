@@ -1,5 +1,6 @@
 #include <cstddef>
 #include <type_traits>
+#include <memory>
 #include <locale>
 #include <string>
 #include <array>
@@ -15,14 +16,15 @@
 #include <iomanip>
 #include <thread>
 
-#include "cl-matrix-mult.hh"
+#include "cl-double-pendulum.hh"
 #include "cl-platform-info.hh"
 
-using std::cerr;
-using std::clog;
 using std::cout;
+using std::clog;
+using std::cerr;
 using std::endl;
 using std::size_t;
+using std::unique_ptr;
 using std::ostringstream;
 using std::string;
 using std::array;
@@ -43,29 +45,17 @@ using std::locale;
 using std::placeholders::_1;
 using std::conditional;
 using std::this_thread::sleep_for;
-using std::chrono::steady_clock;
-using std::chrono::high_resolution_clock;
-using std::chrono::duration_cast;
 using std::chrono::milliseconds;
 
 using cl::Error;
 using cl::Context;
+using cl::Platform;
 using cl::Device;
 using cl::Kernel;
 using cl::Program;
 using cl::CommandQueue;
 using cl::Buffer;
 using cl::NDRange;
-using cl::EnqueueArgs;
-using cl::Event;
-
-#if defined(CL_HPP_PARAM_NAME_INFO_1_0_)
-    template <typename... Ts>
-	using KernelFunction = cl::KernelFunctor<Ts...>;
-#else
-    template <typename... Ts>
-	using KernelFunction = cl::make_kernel<Ts...>;
-#endif
 
 
 extern char const *error_string(cl_int err)
@@ -475,12 +465,17 @@ static std::string list_float_support(cl_device_fp_config fp_config, bool single
     return str.str();
 }
 
-static string list_all_float_support(bool has_half_config, cl_device_fp_config half_config, cl_device_fp_config float_config,
-        cl_device_fp_config double_config)
-{
-	static cl_device_fp_config const half_flags(CL_FP_DENORM | CL_FP_INF_NAN | CL_FP_ROUND_TO_NEAREST | CL_FP_ROUND_TO_ZERO |
-		CL_FP_ROUND_TO_INF | CL_FP_FMA | CL_FP_SOFT_FLOAT);
-}
+// static string list_all_float_support
+//     (
+// 	bool has_half_config,
+// 	cl_device_fp_config half_config,
+// 	cl_device_fp_config float_config,
+//         cl_device_fp_config double_config
+//     )
+// {
+//     static cl_device_fp_config const half_flags(CL_FP_DENORM | CL_FP_INF_NAN | CL_FP_ROUND_TO_NEAREST | CL_FP_ROUND_TO_ZERO |
+// 	    CL_FP_ROUND_TO_INF | CL_FP_FMA | CL_FP_SOFT_FLOAT);
+// }
 
 static string memory_size_str(cl_ulong memoryCapacity, bool showKiBytes = true, int fieldWidth = -1)
 {
@@ -632,160 +627,21 @@ extern string trim_name(string name)
     return name;
 }
 
-
-static char const benchmark_file_name[] = "./cl-double-pendulum.cl";
-
-static cl_command_queue create_command_queue(Context &context, Device &device)
-{
-    cl_int cmd_queue_error = 0;
-    cl_command_queue cmd_queue = clCreateCommandQueue(context(), device(), CL_QUEUE_PROFILING_ENABLE, &cmd_queue_error);
-
-    if (cmd_queue == 0)
-	throw cl::Error(cmd_queue_error, "Create command queue failed");
-
-    return cmd_queue;
-}
-
-
-class DoublePendulumSimulation
-{
-protected:
-    using ClockT = std::conditional<high_resolution_clock::is_steady, high_resolution_clock, steady_clock>::type;
-
-    array<cl_context_properties, 3> context_prop;
-
-    Device	   &device;
-    Context	    context;
-    CommandQueue    cmdQueue;
-    Program	    program;
-    Kernel	    doublePendulumKernel;
-    Buffer	    result;
-
-public:
-    DoublePendulumSimulation(Device &device);
-    void build(size_t result_buffer_size);
-    unsigned long run_simulation(KernelFunction<Buffer, cl_ulong> &sim_fn, size_t, size_t, cl_ulong);
-
-    size_t groupSizeMultiple()
-    {
-	return doublePendulumKernel.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(device);;
-    }
-
-    Kernel &getKernel()
-    {
-	return doublePendulumKernel;
-    }
-};
-
-DoublePendulumSimulation::DoublePendulumSimulation(Device &device)
-    : device(device),
-	context_prop { CL_CONTEXT_PLATFORM, static_cast<cl_context_properties>(reinterpret_cast<intptr_t>(device.getInfo<CL_DEVICE_PLATFORM>())), 0 },
-	context(device, context_prop.data(), context_error_notification),
-	cmdQueue(create_command_queue(context, device)),
-	program(context, readSourceFile(benchmark_file_name), false)
-{
-}
-
-void DoublePendulumSimulation::build(size_t result_buffer_size)
-{
-    try
-    {
-	program.build();
-    }
-    catch(Error const &error)
-    {
-	if (error.err() == CL_BUILD_PROGRAM_FAILURE)
-	{
-#if defined(CL_HPP_PARAM_NAME_INFO_1_0_)
-	    auto const buildLog = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>();
-
-	    if (!buildLog.empty())
-		for (auto const &output_msg: buildLog)
-		    cerr << "Build output from device " << output_msg.first.getInfo<CL_DEVICE_NAME>() << ":\n\t" << output_msg.second << std::endl;
-#else
-	    string deviceBuildLog;
-
-	    program.getInfo(CL_PROGRAM_BUILD_LOG, &deviceBuildLog);
-	    cerr << "Build output:\n" << deviceBuildLog;
-#endif
-	}
-	else
-	    cerr << "OpenCL error: " << error.what() << endl;
-
-	throw;
-    }
-
-    doublePendulumKernel = Kernel(program, "doublePendulumSimulation");
-    result = Buffer(context, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, result_buffer_size);
-}
-
-unsigned long DoublePendulumSimulation::run_simulation(KernelFunction<Buffer, cl_ulong> &sim_fn, size_t global_size, size_t local_size, cl_ulong candidate_step_count)
-{
-    static unsigned simulation_count = 0;
-
-    ClockT::time_point start_time = ClockT::now();
-    Event fn_event = sim_fn(EnqueueArgs(cmdQueue, NDRange(0), NDRange(global_size), NDRange(local_size)), result, candidate_step_count); // * 1024ULL * 1024ULL);
-    cmdQueue.finish();
-    ClockT::time_point stop_time  = ClockT::now();
-    clog << "Kernel time " << ++simulation_count << " (" << setw(4) << global_size << '/' << local_size << "): " << duration_cast<milliseconds>(stop_time - start_time).count() << "ms" << endl;
-
-    return static_cast<unsigned long>(duration_cast<milliseconds>(stop_time - start_time).count());
-    return static_cast<unsigned long>((fn_event.getProfilingInfo<CL_PROFILING_COMMAND_END>() - fn_event.getProfilingInfo<CL_PROFILING_COMMAND_START>() + 500000UL) / 1000000UL);
-}
-
 static void show_cl_device_kernel(Device &device)
 {
-    DoublePendulumSimulation sim(device);
+    DoublePendulumSimulation &sim = DoublePendulumSimulation::get(device);
 
-    size_t candidate_core_count = 2304U;
-    cl_ulong candidate_step_count = 4U * 1024U;
-
-    sim.build(sizeof(cl_char) * candidate_core_count * 64);
-    auto size_multiple = sim.groupSizeMultiple();
-
-    // KernelFunction<Buffer, cl_ulong> sim_fn(sim.getKernel());
-
-    // unsigned long counts[512], times[512];
-    // unsigned long prev_sim_time = sim.run_simulation(sim_fn, 1 * size_multiple, size_multiple, candidate_step_count);
-
-    // for (unsigned n = 1; n <= 512; n++)
-    // {
-    //     cout << "Multiple: " << n << endl;
-
-    //     // sim.run_simulation(sim_fn, (n - 1) * candidate_core_count + size_multiple, size_multiple, candidate_step_count);
-    //     // sim.run_simulation(sim_fn, n * candidate_core_count - size_multiple, size_multiple, candidate_step_count);
-    //     unsigned long sim_time = sim.run_simulation(sim_fn, n * size_multiple, size_multiple, candidate_step_count);
-
-    //     // if (prev_sim_time)
-    //     //     cout << "Increase: " << (sim_time - prev_sim_time) * 100 / sim_time << '%' << endl;
-
-    //     prev_sim_time = sim_time;
-    //     counts[n - 1] = static_cast<unsigned long>(n * size_multiple);
-    //     times[n - 1] = static_cast<unsigned long>(sim_time);
-
-    //     cout << endl;
-    // }
-
-    // cout << "Counts: [ 0";
-    // for (auto val: counts)
-    //     cout << ", " << val;
-    // cout << " ]" << endl;
-
-    // cout << "Times: [ 0";
-    // for (auto val: times)
-    //     cout << ", " << val;
-    // cout << " ]" << endl;
-
-    cout << "\tGroup size multiple:    " << size_multiple << endl;
+    cout << "\tGroup size multiple:    " << sim.groupSizeMultiple() << endl;
+    cout << "\tKernel work group size: " << dimension_size_str(sim.workGroupSize()) << endl;
 }
 
-extern void show_cl_device(Device &device, bool showPlatform)
+extern void show_cl_device(Device &device)
 {
     bool has_type_half = has_extension(device.getInfo<CL_DEVICE_EXTENSIONS>(), "cl_khr_fp16"),
 	 has_type_double = !!device.getInfo<CL_DEVICE_DOUBLE_FP_CONFIG>();
 
     cout << "\tDevice:                 " << trim_name(device.getInfo<CL_DEVICE_NAME>()) << endl;
-    cout << "\tPlatform:               " << trim_name(cl::Platform(device.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>()) << endl;
+    cout << "\tPlatform:               " << trim_name(Platform(device.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>()) << endl;
     cout << "\tVendor:                 [0x" << std::setw(4) << std::setfill('0') << std::setiosflags(cout.right | cout.uppercase) << std::setbase(16) << device.getInfo<CL_DEVICE_VENDOR_ID>() /* << std::resetiosflags() */ << std::setbase(10) << "] "
 					<< device.getInfo<CL_DEVICE_VENDOR>() << endl;
     cout << "\tProfile:                " << device.getInfo<CL_DEVICE_PROFILE>() << endl;
@@ -796,7 +652,7 @@ extern void show_cl_device(Device &device, bool showPlatform)
     // cout << "\tSPIR version:           " << device.getInfo<CL_DEVICE_SPIR_VERSIONS>() << endl;
     cout << "\tDevice available:       " << (device.getInfo<CL_DEVICE_AVAILABLE>() ? "[x]" : "[ ]") << endl;
 
-    if (list_all || trim_name(cl::Platform(device.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_PROFILE>()) == "EMBEDDED_PROFILE")
+    if (list_all || trim_name(Platform(device.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_PROFILE>()) == "EMBEDDED_PROFILE")
     {
         cout << "\tCompiler available:     " << (device.getInfo<CL_DEVICE_COMPILER_AVAILABLE>() ? "[x]" : "[ ]") << endl;
 
@@ -938,7 +794,7 @@ extern void show_cl_device(Device &device, bool showPlatform)
     cout << endl;
 }
 
-extern void show_cl_platform(cl::Platform &platform, bool all_devices, std::vector<PlatformDeviceSet *> &device_list)
+extern void show_cl_platform(Platform &platform, cl::vector<Device> &devices)
 {
     bool result = true;
 
@@ -964,21 +820,10 @@ extern void show_cl_platform(cl::Platform &platform, bool all_devices, std::vect
 
     cout << "Extensions:    \t" << show_extensions_list(ext_list, "\t\t") << endl;
 
-    vector<Device> clDevices;
-    vector<Device> clPerTypeDevices;
-
-    try
-    {
-	platform.getDevices(CL_DEVICE_TYPE_ALL, &clDevices);
-    }
-    catch (cl::Error const &err)
-    {
-	if (err.err() != CL_DEVICE_NOT_FOUND)
-	    throw;
-    }
-
     cout << "Devices:       \t";
     bool devices_output = false;
+
+    cl::vector<Device> clPerTypeDevices;
 
     for (cl_device_type deviceType: array<cl_device_type, 4> { CL_DEVICE_TYPE_ACCELERATOR, CL_DEVICE_TYPE_GPU, CL_DEVICE_TYPE_CPU, CL_DEVICE_TYPE_CUSTOM })
     {
@@ -1008,69 +853,20 @@ extern void show_cl_platform(cl::Platform &platform, bool all_devices, std::vect
 	}
     }
 
-    if (clDevices.empty())
+    if (devices.empty())
         cout << '0';
     else
     {
-	if (clDevices.size() > 1)
-	    cout << "\n               \t    " << list_cl_device_type(clDevices[0].getInfo<CL_DEVICE_TYPE>()) << ":";
+	if (devices.size() > 1)
+	    cout << "\n               \t    " << list_cl_device_type(devices[0].getInfo<CL_DEVICE_TYPE>()) << ":";
 
-	cout << " [" << trim_name(clDevices[0].getInfo<CL_DEVICE_NAME>()) << "]";
+	cout << " [" << trim_name(devices[0].getInfo<CL_DEVICE_NAME>()) << "]";
 
-	for (size_t i = 1; i < clDevices.size(); i++)
+	for (size_t i = 1; i < devices.size(); i++)
 	{
-	    cout << endl << "               \t    " << list_cl_device_type(clDevices[i].getInfo<CL_DEVICE_TYPE>())
-		<< ": [" << trim_name(clDevices[i].getInfo<CL_DEVICE_NAME>()) << "]";
+	    cout << endl << "               \t    " << list_cl_device_type(devices[i].getInfo<CL_DEVICE_TYPE>())
+		<< ": [" << trim_name(devices[i].getInfo<CL_DEVICE_NAME>()) << "]";
 	}
     }
-    cout << endl;
-
-    for (auto &platformDeviceSet: device_list)
-	platformDeviceSet->platformUsage = true;
-
-    all_devices = all_devices || any_of(device_list.cbegin(), device_list.cend(), [](PlatformDeviceSet *deviceSet) -> bool
-	    {
-		return deviceSet->allDevices;
-	    });
-
-    if (all_devices)
-	for (auto &clDevice: clDevices)
-	{
-	    string device_name = trim_name(clDevice.getInfo<CL_DEVICE_NAME>());
-
-	    transform(device_name.begin(), device_name.end(), device_name.begin(), 
-                bind(toupper<char>, _1, locale()));
-
-	    show_cl_device(clDevice);
-
-	    for (auto &deviceSet: device_list)
-		for (size_t i = 0; i < deviceSet->devices.size(); i++)
-		    if (device_name.find(deviceSet->devices[i]) != string::npos)
-			deviceSet->deviceUsage[i] = true;
-	}
-    else
-    {
-        static locale process_locale;
-	vector<bool> listed_devices(clDevices.size());
-
-	for (auto &platformDeviceSet: device_list)
-	    for (size_t i = 0; i < platformDeviceSet->devices.size(); i++)
-		for (size_t cl_device = 0; cl_device < clDevices.size(); cl_device++)
-		{
-		    string device_name = trim_name(clDevices[cl_device].getInfo<CL_DEVICE_NAME>());
-		    transform(device_name.begin(), device_name.end(), device_name.begin(), 
-                        bind(toupper<char>, _1, locale()));
-
-		    if (device_name.find(platformDeviceSet->devices[i]) != string::npos)
-		    {
-			if (!listed_devices[cl_device])
-			    show_cl_device(clDevices[cl_device]);
-
-			listed_devices[cl_device] = true;
-			platformDeviceSet->deviceUsage[i] = true;
-		    }
-		}
-    }
-
     cout << endl;
 }

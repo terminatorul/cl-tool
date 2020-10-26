@@ -12,6 +12,11 @@ using std::ostringstream;
 using std::cerr;
 using std::endl;
 
+using cl::Error;
+using cl::Context;
+using cl::Program;
+using cl::QueueProperties;
+
 string readSourceFile(char const *file_name)
 {
     ifstream sourceFile(file_name);
@@ -44,14 +49,14 @@ char const *float_type_name(FloatType floatType)
     return "-";
 }
 
-static cl::Program &build_program(cl::Program &program, FloatType floatType)
+static Program &build_program(Program &program, FloatType floatType)
 try
 {
     program.build((string("-cl-std=CL1.1 -DFLOAT_TYPE=") + float_type_name(floatType)).c_str());
 
     return program;
 }
-catch(cl::Error const &error)
+catch(Error const &error)
 {
     if (error.err() == CL_BUILD_PROGRAM_FAILURE)
     {
@@ -73,8 +78,8 @@ catch(cl::Error const &error)
     throw;
 }
 
-Matrix::Matrix(cl::Context &context)
-    : cmdQueue(context /* , cl::QueueProperties::OutOfOrder */), program(context, readSourceFile(program_file_name), false),
+Matrix::Matrix(Context &context)
+    : cmdQueue(context /* , QueueProperties::OutOfOrder */), program(context, readSourceFile(program_file_name), false),
       random_fill_float_block(build_program(program, FloatType::Single), "random_fill_float_block"),
       multiply_float_matrix_block(program, "multiply_float_matrix_block") //,
       // random_fill_double_block(program, "random_fill_double_block")

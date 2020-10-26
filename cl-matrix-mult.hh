@@ -54,7 +54,6 @@ class Matrix
 	void waitForCompletion();
 };
 
-void CL_CALLBACK context_error_notification(char const *error_info, void const *private_info, size_t private_info_size, void *user_data);
 std::string readSourceFile(char const *file_name);
 
 template<>
