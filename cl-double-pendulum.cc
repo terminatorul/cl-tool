@@ -145,8 +145,7 @@ void DoublePendulumSimulation::probeIterationCount(milliseconds targetDuration)
 
     iterCount = (iterCount * duration_cast<nanoseconds>(targetDuration).count() + executionTime / 2) / executionTime;
 
-    // Test execution time at or above target duration for three times, and take the expected average value;
-    executionTime += runSimFn() + runSimFn();
+    executionTime = duration_cast<nanoseconds>(milliseconds(100)).count() + runSimFn() + runSimFn();
 
     iterCount = (iterCount * duration_cast<nanoseconds>(targetDuration).count() * 3U + executionTime / 2) / executionTime;
 }
