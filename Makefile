@@ -41,59 +41,62 @@ CL_TOOL_OBJECTS= \
 
 all: ${OBJ_DIR}/cl-tool${EXE_SUFFIX} ${OBJ_DIR}/cl-matrix-rand.cl ${OBJ_DIR}/cl-double-pendulum.cl
 
-icd_headers:=$(SRC_DIR)/OpenCL-Headers
+icd_headers:=$(SRC_DIR)/OpenCL-Headers $(SRC_DIR)/OpenCL-CLHPP
 
 $(SRC_DIR)/OpenCL-Headers:
 	git -C $(SRC_DIR) submodule update --init OpenCL-Headers
 
+$(SRC_DIR)/OpenCL-CLHPP:
+	git -C $(SRC_DIR) submodule update --init OpenCL-CLHPP
+
 ${OBJ_DIR}/cl-tool$(OBJ_SUFFIX): ${SRC_DIR}/cl-tool.cc $(SRC_DIR)/cl-platform-info.hh $(SRC_DIR)/cl-platform-probe.hh $(SRC_DIR)/cl-user-selection.hh $(SRC_DIR)/parse-cmd-line.hh $(icd_headers)
 	$(NIX_CMD) $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ ${SRC_DIR}/cl-tool.cc
-	$(WIN_CMD) $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@.broken ${SRC_DIR}/cl-tool.cc
-	$(WIN_CMD) (For /F "usebackq tokens=1,*" %%i In (`$(NM) "$@.broken" --format POSIX ^| findstr .weak.`) Do @Echo --weaken-symbol=%%i) >"${OBJ_DIR}\weakSym_$(@F).txt"
-	$(WIN_CMD) "$(OBJCOPY)" @"${OBJ_DIR}\weakSym_$(@F).txt" "$@.broken" "$@"
-	$(WIN_CMD) $(RM_CMD) "$@.broken" "${OBJ_DIR}\weakSym_$(@F).txt"
+	$(WIN_CMD) $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ ${SRC_DIR}/cl-tool.cc
+# 	$(WIN_CMD) (For /F "usebackq tokens=1,*" %%i In (`$(NM) "$@.broken" --format POSIX ^| findstr .weak.`) Do @Echo --weaken-symbol=%%i) >"${OBJ_DIR}\weakSym_$(@F).txt"
+# 	$(WIN_CMD) "$(OBJCOPY)" @"${OBJ_DIR}\weakSym_$(@F).txt" "$@.broken" "$@"
+# 	$(WIN_CMD) $(RM_CMD) "$@.broken" "${OBJ_DIR}\weakSym_$(@F).txt"
 
 ${OBJ_DIR}/cl-user-selection$(OBJ_SUFFIX): ${SRC_DIR}/cl-user-selection.cc ${SRC_DIR}/cl-user-selection.hh $(icd_headers)
 	$(NIX_CMD) $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ ${SRC_DIR}/cl-user-selection.cc
-	$(WIN_CMD) $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o "$@.broken" "${SRC_DIR}/cl-user-selection.cc"
-	$(WIN_CMD) (For /F "usebackq tokens=1,*" %%i In (`$(NM) "$@.broken" --format POSIX ^| findstr .weak.`) Do @Echo --weaken-symbol=%%i) >"${OBJ_DIR}\weakSym_$(@F).txt"
-	$(WIN_CMD) "$(OBJCOPY)" @"${OBJ_DIR}\weakSym_$(@F).txt" "$@.broken" "$@"
-	$(WIN_CMD) $(RM_CMD) "$@.broken" "${OBJ_DIR}\weakSym_$(@F).txt"
+	$(WIN_CMD) $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o "$@" "${SRC_DIR}/cl-user-selection.cc"
+# 	$(WIN_CMD) (For /F "usebackq tokens=1,*" %%i In (`$(NM) "$@.broken" --format POSIX ^| findstr .weak.`) Do @Echo --weaken-symbol=%%i) >"${OBJ_DIR}\weakSym_$(@F).txt"
+# 	$(WIN_CMD) "$(OBJCOPY)" @"${OBJ_DIR}\weakSym_$(@F).txt" "$@.broken" "$@"
+# 	$(WIN_CMD) $(RM_CMD) "$@.broken" "${OBJ_DIR}\weakSym_$(@F).txt"
 
 ${OBJ_DIR}/parse-cmd-line$(OBJ_SUFFIX): ${SRC_DIR}/parse-cmd-line.cc ${SRC_DIR}/parse-cmd-line.hh $(SRC_DIR)/cl-platform-info.hh $(icd_headers)
 	$(NIX_CMD) $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ ${SRC_DIR}/parse-cmd-line.cc
-	$(WIN_CMD) $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o "$@.broken" "${SRC_DIR}/parse-cmd-line.cc"
-	$(WIN_CMD) (For /F "usebackq tokens=1,*" %%i In (`$(NM) "$@.broken" --format POSIX ^| findstr .weak.`) Do @Echo --weaken-symbol=%%i) >"${OBJ_DIR}\weakSym_$(@F).txt"
-	$(WIN_CMD) "$(OBJCOPY)" @"${OBJ_DIR}\weakSym_$(@F).txt" "$@.broken" "$@"
-	$(WIN_CMD) $(RM_CMD) "$@.broken" "${OBJ_DIR}\weakSym_$(@F).txt"
+	$(WIN_CMD) $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o "$@" "${SRC_DIR}/parse-cmd-line.cc"
+# 	$(WIN_CMD) (For /F "usebackq tokens=1,*" %%i In (`$(NM) "$@.broken" --format POSIX ^| findstr .weak.`) Do @Echo --weaken-symbol=%%i) >"${OBJ_DIR}\weakSym_$(@F).txt"
+# 	$(WIN_CMD) "$(OBJCOPY)" @"${OBJ_DIR}\weakSym_$(@F).txt" "$@.broken" "$@"
+# 	$(WIN_CMD) $(RM_CMD) "$@.broken" "${OBJ_DIR}\weakSym_$(@F).txt"
 
 ${OBJ_DIR}/cl-matrix-mult$(OBJ_SUFFIX): ${SRC_DIR}/cl-matrix-mult.cc ${SRC_DIR}/cl-matrix-mult.hh $(icd_headers)
 	$(NIX_CMD) $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ ${SRC_DIR}/cl-matrix-mult.cc
-	$(WIN_CMD) $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@.broken ${SRC_DIR}/cl-matrix-mult.cc
-	$(WIN_CMD) (For /F "usebackq tokens=1,*" %%i In (`$(NM) "$@.broken" --format POSIX ^| findstr .weak.`) Do @Echo --weaken-symbol=%%i) >"${OBJ_DIR}\weakSym_$(@F).txt"
-	$(WIN_CMD) $(OBJCOPY) @"${OBJ_DIR}\weakSym_$(@F).txt" "$@.broken" "$@"
-	$(WIN_CMD) $(RM_CMD) "$@.broken" "${OBJ_DIR}\weakSym_$(@F).txt"
+	$(WIN_CMD) $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ ${SRC_DIR}/cl-matrix-mult.cc
+# 	$(WIN_CMD) (For /F "usebackq tokens=1,*" %%i In (`$(NM) "$@.broken" --format POSIX ^| findstr .weak.`) Do @Echo --weaken-symbol=%%i )>"${OBJ_DIR}\weakSym_$(@F).txt"
+# 	$(WIN_CMD) $(OBJCOPY) @"${OBJ_DIR}\weakSym_$(@F).txt" "$@.broken" "$@"
+# 	$(WIN_CMD) $(RM_CMD) "$@.broken" "${OBJ_DIR}\weakSym_$(@F).txt"
 
 ${OBJ_DIR}/cl-double-pendulum$(OBJ_SUFFIX): ${SRC_DIR}/cl-double-pendulum.cc ${SRC_DIR}/cl-double-pendulum.hh $(SRC_DIR)/cl-matrix-mult.hh $(icd_headers)
 	$(NIX_CMD) $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ ${SRC_DIR}/cl-double-pendulum.cc
-	$(WIN_CMD) $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@.broken ${SRC_DIR}/cl-double-pendulum.cc
-	$(WIN_CMD) (For /F "usebackq tokens=1,*" %%i In (`$(NM) "$@.broken" --format POSIX ^| findstr .weak.`) Do @Echo --weaken-symbol=%%i) >"${OBJ_DIR}\weakSym_$(@F).txt"
-	$(WIN_CMD) "$(OBJCOPY)" @"${OBJ_DIR}\weakSym_$(@F).txt" "$@.broken" "$@"
-	$(WIN_CMD) $(RM_CMD) "$@.broken" "${OBJ_DIR}\weakSym_$(@F).txt"
+	$(WIN_CMD) $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ ${SRC_DIR}/cl-double-pendulum.cc
+# 	$(WIN_CMD) (For /F "usebackq tokens=1,*" %%i In (`$(NM) "$@.broken" --format POSIX ^| findstr .weak.`) Do @Echo --weaken-symbol=%%i) >"${OBJ_DIR}\weakSym_$(@F).txt"
+# 	$(WIN_CMD) "$(OBJCOPY)" @"${OBJ_DIR}\weakSym_$(@F).txt" "$@.broken" "$@"
+# 	$(WIN_CMD) $(RM_CMD) "$@.broken" "${OBJ_DIR}\weakSym_$(@F).txt"
 
 ${OBJ_DIR}/cl-platform-info$(OBJ_SUFFIX): ${SRC_DIR}/cl-platform-info.cc ${SRC_DIR}/cl-platform-info.hh $(SRC_DIR)/cl-double-pendulum.hh $(icd_headers)
 	$(NIX_CMD) $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ ${SRC_DIR}/cl-platform-info.cc
-	$(WIN_CMD) $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o "$@.broken" "${SRC_DIR}/cl-platform-info.cc"
-	$(WIN_CMD) (For /F "usebackq tokens=1,*" %%i In (`$(NM) "$@.broken" --format POSIX ^| findstr .weak.`) Do @Echo --weaken-symbol=%%i) >"${OBJ_DIR}\weakSym_$(@F).txt"
-	$(WIN_CMD) "$(OBJCOPY)" @"${OBJ_DIR}\weakSym_$(@F).txt" "$@.broken" "$@"
-	$(WIN_CMD) $(RM_CMD) "$@.broken" "${OBJ_DIR}\weakSym_$(@F).txt"
+	$(WIN_CMD) $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o "$@" "${SRC_DIR}/cl-platform-info.cc"
+# 	$(WIN_CMD) (For /F "usebackq tokens=1,*" %%i In (`$(NM) "$@.broken" --format POSIX ^| findstr .weak.`) Do @Echo --weaken-symbol=%%i) >"${OBJ_DIR}\weakSym_$(@F).txt"
+# 	$(WIN_CMD) "$(OBJCOPY)" @"${OBJ_DIR}\weakSym_$(@F).txt" "$@.broken" "$@"
+# 	$(WIN_CMD) $(RM_CMD) "$@.broken" "${OBJ_DIR}\weakSym_$(@F).txt"
 
 ${OBJ_DIR}/cl-platform-probe$(OBJ_SUFFIX): ${SRC_DIR}/cl-platform-probe.cc $(SRC_DIR)/cl-platform-probe.hh $(SRC_DIR)/cl-matrix-mult.hh $(SRC_DIR)/cl-double-pendulum.hh $(icd_headers)
 	$(NIX_CMD) $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ ${SRC_DIR}/cl-platform-probe.cc
-	$(WIN_CMD) $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o "$@.broken" "${SRC_DIR}/cl-platform-probe.cc"
-	$(WIN_CMD) (For /F "usebackq tokens=1,*" %%i In (`$(NM) "$@.broken" --format POSIX ^| findstr .weak.`) Do @Echo --weaken-symbol=%%i) >"${OBJ_DIR}\weakSym_$(@F).txt"
-	$(WIN_CMD) $(OBJCOPY) @"${OBJ_DIR}\weakSym_$(@F).txt" "$@.broken" "$@"
-	$(WIN_CMD) $(RM_CMD) "$@.broken" "${OBJ_DIR}\weakSym_$(@F).txt"
+	$(WIN_CMD) $(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o "$@" "${SRC_DIR}/cl-platform-probe.cc"
+# 	$(WIN_CMD) (For /F "usebackq tokens=1,*" %%i In (`$(NM) "$@.broken" --format POSIX ^| findstr .weak.`) Do @Echo --weaken-symbol=%%i) >"${OBJ_DIR}\weakSym_$(@F).txt"
+# 	$(WIN_CMD) $(OBJCOPY) @"${OBJ_DIR}\weakSym_$(@F).txt" "$@.broken" "$@"
+# 	$(WIN_CMD) $(RM_CMD) "$@.broken" "${OBJ_DIR}\weakSym_$(@F).txt"
 
 $(SRC_DIR)/OpenCL-ICD-Loader:
 	git -C $(SRC_DIR) submodule update --init OpenCL-ICD-Loader
@@ -105,8 +108,8 @@ OpenCL-ICD-Loader/bin/$(DLL_PREFIX)OpenCL$(DLL_SUFFIX): build_icd
 build_icd: $(SRC_DIR)/OpenCL-ICD-Loader
 	$(NIX_CMD) mkdir -parents OpenCL-ICD-Loader
 	$(WIN_CMD) If Not Exist OpenCL-ICD-Loader (MkDir OpenCL-ICD-Loader)
-	$(NIX_CMD) if ! test -e OpenCL-ICD-Loader/CMakeCache.txt; then  cmake -S $(SRC_DIR)/OpenCL-ICD-Loader -B OpenCL-ICD-Loader $(ICD_LOADER_GENERATOR) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_SHARED_LIBRARY_PREFIX=$(DLL_PREFIX) -DCMAKE_SHARED_LIBRARY_PREFIX_C=$(DLL_PREFIX) -DCMAKE_C_FLAGS="-I$(SRC_DIR)/OpenCL-Headers -I$$(PWD)/$(SRC_DIR)/OpenCL-Headers"
-	$(WIN_CMD) If Not Exist OpenCL-ICD-Loader\CMakeCache.txt cmd /C cmake -S $(SRC_DIR)/OpenCL-ICD-Loader -B OpenCL-ICD-Loader $(ICD_LOADER_GENERATOR) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_SHARED_LIBRARY_PREFIX=$(DLL_PREFIX) -DCMAKE_SHARED_LIBRARY_PREFIX_C=$(DLL_PREFIX) -DCMAKE_C_FLAGS="-I$(SRC_DIR)/OpenCL-Headers -I%CD%/$(SRC_DIR)/OpenCL-Headers"
+	$(NIX_CMD) if ! test -e OpenCL-ICD-Loader/CMakeCache.txt; then  cmake -S $(SRC_DIR)/OpenCL-ICD-Loader -B OpenCL-ICD-Loader $(ICD_LOADER_GENERATOR) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_SHARED_LIBRARY_PREFIX=$(DLL_PREFIX) -DCMAKE_SHARED_LIBRARY_PREFIX_C=$(DLL_PREFIX) -DCMAKE_C_FLAGS="-DCL_TARGET_OPENCL_VERSION=220 -I$(SRC_DIR)/OpenCL-Headers -I$$(PWD)/$(SRC_DIR)/OpenCL-Headers"
+	$(WIN_CMD) If Not Exist OpenCL-ICD-Loader\CMakeCache.txt cmd /C cmake -S $(SRC_DIR)/OpenCL-ICD-Loader -B OpenCL-ICD-Loader $(ICD_LOADER_GENERATOR) -DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) -DCMAKE_SHARED_LIBRARY_PREFIX=$(DLL_PREFIX) -DCMAKE_SHARED_LIBRARY_PREFIX_C=$(DLL_PREFIX) -DCMAKE_C_FLAGS="-DCL_TARGET_OPENCL_VERSION=220 -I$(SRC_DIR)/OpenCL-Headers -I%CD%/$(SRC_DIR)/OpenCL-Headers"
 	$(NIX_CMD) cmake --build OpenCL-ICD-Loader
 	$(WIN_CMD) cmake --build OpenCL-ICD-Loader --target OpenCL
 
