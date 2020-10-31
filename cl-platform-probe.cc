@@ -1,4 +1,5 @@
 #include <chrono>
+#include <iterator>
 #include <iostream>
 
 #if defined(__APPLE__) || defined(__MACOSX__)
@@ -15,6 +16,7 @@ using std::chrono::milliseconds;
 using std::cout;
 using std::clog;
 using std::endl;
+using std::size;
 
 using cl::Platform;
 using cl::Device;
@@ -49,35 +51,44 @@ extern bool probe_cl_device(Device &device)
 	sim.probeIterationCount(milliseconds(100));
 	clog << "\tCandidate step count:   " << sim.iterationCount() << endl;
 
-	clog << endl; return true;
+	// clog << endl; return true;
 
 	auto size_multiple = sim.groupSizeMultiple();
 
-	unsigned long counts[512], times[512];
+	unsigned long counts[512], times[512][6];
 	unsigned long prev_sim_time = sim.runSimulation(NDRange(1 * size_multiple), NDRange(size_multiple));
 
-	for (unsigned n = 1; n <= 512; n++)
+	for (unsigned n = 1; n <= size(counts); n++)
 	{
-	    cout << "Multiple: " << n << endl;
+	    cout << "Multiple: " << n << '\r';
 
-	    unsigned long sim_time = sim.runSimulation(NDRange(n * size_multiple), NDRange(size_multiple));
-
-	    prev_sim_time = sim_time;
 	    counts[n - 1] = static_cast<unsigned long>(n * size_multiple);
-	    times[n - 1] = static_cast<unsigned long>(sim_time);
 
-	    cout << endl;
+	    for (unsigned it = 0; it < size(times[n - 1]); it++)
+	    {
+		unsigned long sim_time = sim.runSimulation(NDRange(n * size_multiple), NDRange(size_multiple));
+
+		prev_sim_time = sim_time;
+		times[n - 1][it] = static_cast<unsigned long>(sim_time);
+	    }
 	}
+
+	cout << '\n';
+
+	// cout << endl;
 
 	cout << "Counts: [ 0";
 	for (auto val: counts)
 	    cout << ", " << val;
 	cout << " ]" << endl;
 
-	cout << "Times: [ 0";
-	for (auto val: times)
-	    cout << ", " << val;
-	cout << " ]" << endl;
+	for (unsigned it = 0; it < sizeof times[0] / sizeof times[0][0]; it++)
+	{
+	    cout << "Times: [ 0";
+	    for (auto val: times)
+		cout << ", " << val[it];
+	    cout << " ]" << endl;
+	}
     }
     else
     {
