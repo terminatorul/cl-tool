@@ -1,5 +1,4 @@
 # cl-tool
-List and proble OpenCL devices (compute devices and GPUs) from the command line. Both OpenCL framework and GPU OpenCL dirvers must be installed.
+List installed OpenCL platforms and devices (compute devices and GPUs) from the command line. OpenCL must be installed.
 
-# Under development
-There is no released version for this tool, it will be similar to the existing `clinfo` (or maybe `cldemo`) tools.
+Similar to the existing `clinfo` (or maybe `cldemo`) tools.
