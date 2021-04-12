@@ -32,6 +32,7 @@
 *.app
 
 build
+cl-tool
 CMakeCache.txt
 CMakeFiles
 Makefile
@@ -49,3 +50,6 @@ nbproject
 *.bak
 *.un~
 .*
+tags
+cscope.out
+/cl-tool.vim

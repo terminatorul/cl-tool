@@ -1,0 +1,27 @@
+# Windows -only include makefile
+
+# C:/Intel/OpenCL/sdk
+OPENCL_SDK_DIR=$(INTELOCLSDKROOT)
+OPENCL_SDK_ARCH=x64
+
+OPENCL_INCLUDE_DIR=$(OPENCL_SDK_DIR)/include
+OPENCL_LIB_DIR=$(OPENCL_SDK_DIR)/lib/$(OPENCL_SDK_ARCH)
+OPENCL_RUNTIME_LIB_DIR=$(OPENCL_SDK_DIR)/bin/icd/$(OPENCL_SDK_ARCH)
+OPENCL_DLL=$(SystemRoot)\System32\OpenCL.dll
+
+OPENCL_CPP_FLAGS="-I$(SRC_DIR)/OpenCL-Headers" "-I$(SRC_DIR)/OpenCL-CLHPP/include"
+OPENCL_LD_FLAGS=-LOpenCL-ICD-Loader\bin
+
+ICD_LOADER_GENERATOR=-G "MinGW Makefiles"
+
+EXE_SUFFIX=.exe
+OBJ_SUFFIX=.obj
+DLL_SUFFIX=.dll
+DLL_PREFIX=
+
+RM_CMD=Erase /S /Q
+MKLINK_CMD="$(ComSpec)" /C MkLink
+LN_CMD=
+
+WIN_CMD=
+NIX_CMD=@Rem
