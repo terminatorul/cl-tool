@@ -807,6 +807,7 @@ extern void show_cl_platform(Platform &platform, cl::vector<Device> &devices)
     string extensions = platform.getInfo<CL_PLATFORM_EXTENSIONS>();
     basic_regex<char> const feature_name_regexp("[^[:space:]]*");
     list<string> ext_list;
+
     for
 	(
 	    regex_iterator<string::const_iterator> it(extensions.cbegin(), extensions.cend(), feature_name_regexp);
@@ -868,5 +869,6 @@ extern void show_cl_platform(Platform &platform, cl::vector<Device> &devices)
 		<< ": [" << trim_name(devices[i].getInfo<CL_DEVICE_NAME>()) << "]";
 	}
     }
+
     cout << endl;
 }
