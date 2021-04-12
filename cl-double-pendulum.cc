@@ -118,7 +118,7 @@ unsigned long DoublePendulumSimulation::runSimulation(NDRange const &globalSize,
     cmdQueue.finish();
 
     unsigned long execTime = static_cast<unsigned long>((fn_event.getProfilingInfo<CL_PROFILING_COMMAND_END>() - fn_event.getProfilingInfo<CL_PROFILING_COMMAND_START>() + 500000UL) / 1000000UL);
-    clog << "Kernel time " << ++simulation_count << " (" << setw(4) << itemCount(globalSize) << '/' << itemCount(localSize) << "): " << execTime << "ms" << endl;
+    // clog << "Kernel time " << ++simulation_count << " (" << setw(4) << itemCount(globalSize) << '/' << itemCount(localSize) << "): " << execTime << "ms" << endl;
 
     return execTime;
 }
