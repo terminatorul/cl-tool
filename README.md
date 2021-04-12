@@ -4,6 +4,10 @@ Both the OpenCL framework and GPU-specific OpenCL drivers must be installed. Git
 
 Similar to the existing `clinfo` (or maybe `cldemo`) tools.
 
+## Syntax
+
+Command line syntax:
+
 ```txt
 Syntax:
         cl-tool [ --include-defaults ]
