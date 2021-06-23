@@ -38,7 +38,7 @@ set(CL_TOOL_SOURCES
 set(CL_TOOL_TARGET_SOURCES cl-matrix-rand.cl cl-double-pendulum.cl)
 
 add_executable(cl-tool ${CL_TOOL_SOURCES})
-target_compile_features(cl-tool PRIVATE cxx_std_14)
+target_compile_features(cl-tool PRIVATE cxx_std_17)
 target_compile_definitions(cl-tool PRIVATE CL_HPP_TARGET_OPENCL_VERSION=200 CL_HPP_MINIMUM_OPENCL_VERSION=110 CL_HPP_CL_1_2_DEFAULT_BUILD CL_HPP_ENABLE_EXCEPTIONS)
 target_compile_definitions(cl-tool PRIVATE __CL_ENABLE_EXCEPTIONS CL_VERSION_1_2)
 target_include_directories(cl-tool PRIVATE ${OPENCL_INCLUDE_DIRS} ${OPENCL2_HPP_INCLUDE_DIRS})
@@ -72,8 +72,8 @@ add_custom_target(tags DEPENDS ${CL_TOOL_SOURCES} BYPRODUCTS tags WORKING_DIRECT
 
 if (NOT WIN32)
     enable_testing()
-    add_executable(cl-tool-unit-tests cl-platform-info.hh cl-platform-info.cc unit-tests/cl-tool-unit-test.cc)
-    target_compile_features(cl-tool-unit-tests PRIVATE cxx_std_14)
+    add_executable(cl-tool-unit-tests cl-platform-info.hh cl-platform-info.cc cl-double-pendulum.cc cl-matrix-mult.cc unit-tests/cl-tool-unit-test.cc)
+    target_compile_features(cl-tool-unit-tests PRIVATE cxx_std_17)
     target_compile_definitions(cl-tool-unit-tests PRIVATE CL_HPP_TARGET_OPENCL_VERSION=120 CL_HPP_MINIMUM_OPENCL_VERSION=110 CL_HPP_CL_1_2_DEFAULT_BUILD CL_HPP_ENABLE_EXCEPTIONS)
     target_compile_definitions(cl-tool-unit-tests PRIVATE __CL_ENABLE_EXCEPTIONS CL_VERSION_1_2)
     target_include_directories(cl-tool-unit-tests PRIVATE "${cl_tool_SOURCE_DIR}" ${OPENCL_INCLUDE_DIRS} ${OPENCL2_HPP_INCLUDE_DIRS})
