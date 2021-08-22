@@ -50,12 +50,23 @@ public:
 
     decltype(selectedDeviceList) &selectedDevices();
     cl::vector<cl::Device> &platformDevices(unsigned platformIdx);
+    std::size_t totalDeviceCount(void) const;
 };
 
 
 inline cl::vector<cl::Device> &UserDeviceSelection::platformDevices(unsigned platformIdx)
 {
     return nativePlatformDevices[platformIdx];
+}
+
+inline std::size_t UserDeviceSelection::totalDeviceCount(void) const
+{
+    std::size_t count = 0u;
+
+    for (auto const &platform: nativePlatformDevices)
+	count += platform.size();
+
+    return count;
 }
 
 inline void UserDeviceSelection::clearSelection()
@@ -67,6 +78,5 @@ inline decltype(UserDeviceSelection::selectedDeviceList) &UserDeviceSelection::s
 {
     return selectedDeviceList;
 }
-
 
 #endif /* !defined(CL_TOOL_HH) */

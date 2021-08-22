@@ -32,20 +32,20 @@ void SyntaxError::showSyntax(char const *cmd_name)
     cerr << "\t     probed." << endl;
     cerr << endl;
     cerr << "\t[--list][ [--probe] --platforms [--devices]" << endl;
-    cerr << "\t     With --list (default) show details on the available OpenCL platforms." << endl;
+    cerr << "\t     With --list or --show (default), show details on the available OpenCL platforms." << endl;
     cerr << "\t     With --devices also show details on available OpenCL devices in the platforms." << endl;
     cerr << "\t     With --probe report the resulting floating-point speed of the devices." << endl;
     cerr << "\t     To both show details and test all devices in your system use:" << endl;
     cerr << "\t          " << cmd_name << " --list --probe --platforms --devices" << endl;
     cerr << endl;
     cerr << "\t[--list] [--probe] --platform \"OpenCL Platform or Vendor Name\" [--devices]" << endl;
-    cerr << "\t     With --list (default) show details on selected OpenCL platform or vendor/other info." << endl;
+    cerr << "\t     With --list or --show (default), show details on selected OpenCL platform or vendor/other info." << endl;
     cerr << "\t     With --devices show details on available OpenCL devices in selected platform." << endl;
     cerr << "\t     With --probe report the resulting floating-point speed of the devices," << endl;
     cerr << "\t     usually in GFLOPS." << endl;
     cerr << endl;
     cerr << "\t[--list] [--probe] --platform \"OpenCL Platform Name\" --device \"OpenCL Device Name\" " << endl;
-    cerr << "\t     With --list (default) show selected OpenCL device, from the selected platform." << endl;
+    cerr << "\t     With --list or --show (default), show selected OpenCL device, from the selected platform." << endl;
     cerr << "\t     With --probe show the resulting floating-point speed of the device." << endl;
     cerr << endl;
     cerr << "\t[--include-defaults]" << endl;
@@ -60,7 +60,7 @@ void SyntaxError::showSyntax(char const *cmd_name)
     cerr << "\t     Match platfom and device name exactly. By default names on the command line can be substrings or" << endl;
     cerr << "\t     prefixes of the OpenCL reported names." << endl;
     cerr << endl;
-    cerr << "The platform and device names can also be substrings or prefixes thereof. You can list and probe several" << endl;
+    cerr << "The platform and device names can also be substrings or prefixes thereof. You can show and probe several" << endl;
     cerr << "platforms and devices with multiple options. Option order is significant, specify the platform before the" << endl;
     cerr << "device(s)." << endl;
     cerr << endl;
@@ -158,7 +158,7 @@ char const * const *CmdLineArgs::parsePlatformActions(char const * const argv[])
 	argv++;
     }
 
-    if (argv[0] && !strncmp("--list", argv[0], sizeof "--list"))
+    if (argv[0] && (!strncmp("--list", argv[0], sizeof "--list") || !strncmp("--show", argv[0], sizeof "--show")))
     {
 	if (state != ReadActions)
 	{

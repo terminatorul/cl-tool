@@ -1,6 +1,8 @@
+#include <cstddef>
 #include <chrono>
 #include <iterator>
 #include <iostream>
+#include <memory>
 
 #if defined(__APPLE__) || defined(__MACOSX__)
 # include <OpenCL/cl2.hpp>
@@ -12,19 +14,50 @@
 #include "cl-double-pendulum.hh"
 #include "cl-platform-probe.hh"
 
+using std::size_t;
 using std::chrono::milliseconds;
 using std::cout;
 using std::clog;
 using std::endl;
+using std::flush;
 using std::size;
+using std::unique_ptr;
 
 using cl::Platform;
 using cl::Device;
 using cl::NDRange;
 
+static const auto
+    SIMULATION_STEP_PROBE_TIME = milliseconds(100),
+    SIMULATION_PROBE_TIME_MAX  = milliseconds(450);	    // Allow for at least 3 full time steps during probe
+
+static const unsigned MULTI_PASS_COUNT = 3;
+
 extern void probe_cl_platform(Platform &platform)
 {
     cout << trim_name(platform.getInfo<CL_PLATFORM_NAME>()) << endl;
+}
+
+size_t probe_global_simulation_size(DoublePendulumSimulation &sim, size_t base_size, size_t size_multiple)
+{
+    unsigned n = 1u;
+
+    while
+	(
+	    milliseconds(sim.runSimulation(NDRange((base_size + n)     * size_multiple), NDRange(size_multiple))) < SIMULATION_PROBE_TIME_MAX
+		||
+	    milliseconds(sim.runSimulation(NDRange((base_size + n + 1) * size_multiple), NDRange(size_multiple))) < SIMULATION_PROBE_TIME_MAX
+		||
+	    milliseconds(sim.runSimulation(NDRange((base_size + n + 2) * size_multiple), NDRange(size_multiple))) < SIMULATION_PROBE_TIME_MAX
+	)
+    {
+	n *= 2u;
+    }
+
+    if (n > 2u)
+	return probe_global_simulation_size(sim, base_size + n / 2, size_multiple);
+
+    return base_size;
 }
 
 extern bool probe_cl_device(Device &device)
@@ -48,28 +81,24 @@ extern bool probe_cl_device(Device &device)
     {
 	DoublePendulumSimulation &sim = DoublePendulumSimulation::get(device);
 
-	sim.probeIterationCount(milliseconds(100));
+	sim.probeIterationCount(SIMULATION_STEP_PROBE_TIME);
 	clog << "\tCandidate step count:   " << sim.iterationCount() << endl;
 
 	// clog << endl; return true;
 
-	auto size_multiple = sim.groupSizeMultiple();
+	auto size_multiple = sim.groupSizeMultiple(), simulation_size = probe_global_simulation_size(sim, 1u, size_multiple);
+	clog << "\tGlobal workgroup size:  " << simulation_size << endl;
 
-	unsigned long counts[512], times[512][6];
-	unsigned long prev_sim_time = sim.runSimulation(NDRange(1 * size_multiple), NDRange(size_multiple));
+	unique_ptr<unsigned long[][MULTI_PASS_COUNT]>times(new unsigned long[simulation_size][MULTI_PASS_COUNT]);
 
-	for (unsigned n = 1; n <= size(counts); n++)
+	for (unsigned it = 0; it < size(times[0]); it++)
 	{
-	    cout << "Multiple: " << n << '\r';
+	    cout << "\rMultiple: " << it << "/            " << flush;
 
-	    counts[n - 1] = static_cast<unsigned long>(n * size_multiple);
-
-	    for (unsigned it = 0; it < size(times[n - 1]); it++)
+	    for (unsigned n = 1u; n <= simulation_size; n++)
 	    {
-		unsigned long sim_time = sim.runSimulation(NDRange(n * size_multiple), NDRange(size_multiple));
-
-		prev_sim_time = sim_time;
-		times[n - 1][it] = static_cast<unsigned long>(sim_time);
+		cout << "\rMultiple: " << it + 1u << '/' << n << flush;
+		times[n - 1][it] = static_cast<unsigned long>(sim.runSimulation(NDRange(n * size_multiple), NDRange(size_multiple)));
 	    }
 	}
 
@@ -78,15 +107,15 @@ extern bool probe_cl_device(Device &device)
 	// cout << endl;
 
 	cout << "Counts: [ 0";
-	for (auto val: counts)
-	    cout << ", " << val;
+	for (unsigned n = 1u; n <= simulation_size; n++)
+	    cout << ", " << n * size_multiple;
 	cout << " ]" << endl;
 
-	for (unsigned it = 0; it < sizeof times[0] / sizeof times[0][0]; it++)
+	for (unsigned it = 0; it < size(times[0]); it++)
 	{
 	    cout << "Times: [ 0";
-	    for (auto val: times)
-		cout << ", " << val[it];
+	    for (unsigned n = 1u; n <= simulation_size; n++)
+		cout << ", " << times[n - 1u][it];
 	    cout << " ]" << endl;
 	}
     }

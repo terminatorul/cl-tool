@@ -89,10 +89,22 @@ bool enumerate_cl_platforms
 
     if (!platformSelection.empty())
     {
-	cout << platformSelection.size() << " OpenCL platform" << (platformSelection.size() > 1 ? "s" : "");
+	if (platformSelection.size() == nativePlatforms.size() && (!deviceCount || deviceCount == userDeviceSelection.totalDeviceCount()))
+	{
+	    cout << platformSelection.size() << " OpenCL platform" << (platformSelection.size() > 1 ? "s" : "");
 
-	if (deviceCount)
-	    cout << ", " << deviceCount << " device" << (deviceCount > 1 ? "s" : "") << " total";
+	    if (deviceCount)
+		cout << ", " << deviceCount << " compute device" << (deviceCount > 1 ? "s" : "") << " total";
+	}
+	else
+	{
+	    cout << "Selected ";
+
+	    if (deviceCount)
+		cout << deviceCount << " compute device" << (deviceCount > 1 ? "s" : "") << " and ";
+
+	    cout << platformSelection.size() << " OpenCL platform" << (platformSelection.size() > 1 ? "s" : "");
+	}
 
 	cout << '.' << endl;
     }
