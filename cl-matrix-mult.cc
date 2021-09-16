@@ -79,7 +79,8 @@ catch(Error const &error)
 }
 
 Matrix::Matrix(Context &context)
-    : cmdQueue(context /* , QueueProperties::OutOfOrder */), program(context, readSourceFile(program_file_name), false),
+    : cmdQueue(::clCreateCommandQueue(context(), context.getInfo<CL_CONTEXT_DEVICES>()[0](), 0 /* QueueProperties::OutOfOrder */, nullptr), true),
+      program(context, readSourceFile(program_file_name), false),
       random_fill_float_block(build_program(program, FloatType::Single), "random_fill_float_block"),
       multiply_float_matrix_block(program, "multiply_float_matrix_block") //,
       // random_fill_double_block(program, "random_fill_double_block")

@@ -481,24 +481,43 @@ static string memory_size_str(cl_ulong memoryCapacity, bool showKiBytes = true, 
 {
     ostringstream memoryString;
 
+    cl_ulong bytes  = memoryCapacity % 1024;
     cl_ulong kbytes = memoryCapacity / 1024;
     cl_ulong mbytes = kbytes / 1024;
     cl_ulong gbytes = mbytes / 1024;
+    cl_ulong tbytes = gbytes / 1024;
+    cl_ulong pbytes = tbytes / 1024;
+    cl_ulong ebytes = pbytes / 1024;
 
     kbytes %= 1024;
     mbytes %= 1024;
+    gbytes %= 1024;
+    tbytes %= 1024;
+    pbytes %= 1024;
 
     if (fieldWidth > 0)
 	memoryString << setw(fieldWidth) << setfill(' ');
+
+    if (ebytes)
+	memoryString << ebytes << " EiBytes ";
+
+    if (pbytes)
+	memoryString << pbytes << " PiBytes ";
+
+    if (tbytes)
+	memoryString << tbytes << " TiBytes ";
 
     if (gbytes)
 	memoryString << gbytes << " GiBytes ";
 
     if (mbytes)
-	memoryString << (mbytes % 1024) << " MiBytes ";
+	memoryString << mbytes << " MiBytes ";
 
     if (showKiBytes && kbytes)
-	memoryString << (kbytes % 1024) << " KiBytes ";
+	memoryString << kbytes << " KiBytes ";
+
+    if (showKiBytes && bytes)
+        memoryString <<  bytes << " bytes ";
 
     string result = memoryString.str();
 
@@ -672,7 +691,7 @@ extern void show_cl_device(Device &device)
                                         << (device.getInfo<CL_DEVICE_HOST_UNIFIED_MEMORY>() ? " Shared memory" : " Dedicated memory") << endl;
 #endif
     cout << "\t                        ";
-    if (device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_TYPE>() == CL_NONE)
+        if (device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_TYPE>() == CL_NONE || !device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_SIZE>())
         cout << "(no cache)";
     else
         cout << memory_size_str(device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_SIZE>(), true, 4) << ' ' << memoryCacheType(device.getInfo<CL_DEVICE_GLOBAL_MEM_CACHE_TYPE>()) << " cache" << endl
@@ -802,7 +821,20 @@ extern void show_cl_platform(Platform &platform, cl::vector<Device> &devices)
     cout << "Vendor:        \t" << trim_name(platform.getInfo<CL_PLATFORM_VENDOR>()) << endl;
     cout << "Profile:       \t" << platform.getInfo<CL_PLATFORM_PROFILE>() << endl;
     cout << "Version:       \t" << platform.getInfo<CL_PLATFORM_VERSION>() << endl;
-    cout << "ICD suffix:    \t" << platform.getInfo<CL_PLATFORM_ICD_SUFFIX_KHR>() << endl;
+    cout << "ICD suffix:    \t" << [&platform]() -> string
+    {
+            try
+            {
+                return platform.getInfo<CL_PLATFORM_ICD_SUFFIX_KHR>();
+            }
+            catch (cl::Error const &err)
+            {
+                if (err.err() != CL_INVALID_VALUE)
+                    throw;
+
+                return "Not available";
+            }
+    }() << endl;
 
     string extensions = platform.getInfo<CL_PLATFORM_EXTENSIONS>();
     basic_regex<char> const feature_name_regexp("[^[:space:]]*");
@@ -832,7 +864,17 @@ extern void show_cl_platform(Platform &platform, cl::vector<Device> &devices)
 
 	try
 	{
-	    platform.getDevices(deviceType, &clPerTypeDevices);
+            try
+            {
+	        platform.getDevices(deviceType, &clPerTypeDevices);
+            }
+            catch (cl::Error const &err)
+            {
+                if (deviceType != CL_DEVICE_TYPE_CUSTOM || err.err() != CL_INVALID_VALUE)
+                    throw;
+
+                clPerTypeDevices.clear();
+            }
 
 	    if (clPerTypeDevices.size() != 0)
 	    {

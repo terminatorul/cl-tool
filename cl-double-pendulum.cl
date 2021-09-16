@@ -7,6 +7,9 @@ constant float L2 = 0.48f;		// second rod length in the double pendulum
 constant float m2 = 1.49f;		// second mass in the double pendulum
 constant float g  = 9.81f;
 
+float4 stateDerivative(float4 private const *state);
+void runRungeKuttaStep(float4 private *state);
+
 float4 stateDerivative(float4 private const *state)
 {
 	private float denom = 2 * m1 + m2 - m2 * cos(2 * (*state).x - 2 * (*state).y);

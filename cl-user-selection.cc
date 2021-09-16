@@ -29,6 +29,7 @@ using std::bind;
 using std::placeholders::_1;
 using std::locale;
 using std::cerr;
+using std::clog;
 using std::endl;
 
 using cl::Error;
@@ -54,7 +55,7 @@ class MatchPlatformDeviceInfo: public UserDeviceSelection::PlatformDeviceInfo
 {
 protected:
     string platformName;
-    array<string, 4> platformInfo;
+    array<string, 4u> platformInfo;
     vector<string> platformDevices;
     static locale current_locale;
 
@@ -123,7 +124,20 @@ inline void MatchPlatformDeviceInfo::loadPlatform(Platform &platform)
 	platformName,
 	platform.getInfo<CL_PLATFORM_VENDOR>(),
 	platform.getInfo<CL_PLATFORM_VERSION>(),
-	platform.getInfo<CL_PLATFORM_ICD_SUFFIX_KHR>(),
+	[&platform]() -> string
+        {
+            try
+            {
+                return platform.getInfo<CL_PLATFORM_ICD_SUFFIX_KHR>();
+            }
+            catch (cl::Error const &err)
+            {
+                if (err.err() != CL_INVALID_VALUE)
+                    throw;
+
+                return string();
+            }
+        }()
     };
 
     for (string &str: platformInfo)

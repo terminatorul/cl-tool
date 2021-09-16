@@ -35,6 +35,7 @@
 
 using std::cerr;
 using std::cout;
+using std::clog;
 using std::endl;
 using std::string;
 using std::array;
