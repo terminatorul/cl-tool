@@ -1,5 +1,6 @@
 #include <cstddef>
 #include <chrono>
+#include <thread>
 #include <iterator>
 #include <iostream>
 #include <memory>
@@ -99,6 +100,7 @@ extern bool probe_cl_device(Device &device)
 	    {
 		cout << "\rMultiple: " << it + 1u << '/' << n << flush;
 		times[n - 1][it] = static_cast<unsigned long>(sim.runSimulation(NDRange(n * size_multiple), NDRange(size_multiple)));
+		std::this_thread::sleep_for(std::chrono::milliseconds(300));
 	    }
 	}
 
