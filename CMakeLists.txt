@@ -2,8 +2,23 @@ cmake_minimum_required(VERSION 3.2)
 
 message("-- Updating git submodules")
 execute_process(COMMAND git submodule update --init --recursive WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
-# Add symlinks to CL include directories named "OpenCL" for APPLE platform, with execute_process
 set(OPENCL_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/OpenCL-Headers")
+set(OPENCL2_HPP_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/OpenCL-CLHPP/include")
+if (APPLE)
+    set(OPENCL_LIBRARIES "-framework OpenCL")
+
+    # Add symlinks to CL include directories named "OpenCL" for APPLE platform, with execute_process
+    if (NOT EXISTS "${CMAKE_SOURCE_DIR}/OpenCL-Headers/OpenCL")
+        file(CREATE_LINK "CL" "${CMAKE_SOURCE_DIR}/OpenCL-Headers/OpenCL" SYMBOLIC)
+    endif()
+
+    if (NOT EXISTS "${CMAKE_SOURCE_DIR}/OpenCL-CLHPP/include/OpenCL")
+        file(CREATE_LINK "CL" "${CMAKE_SOURCE_DIR}/OpenCL-CLHPP/include/OpenCL" SYMBOLIC)
+    endif()
+else()
+    set(OPENCL_LIBRARIES OpenCL)
+endif()
+
 
 if (APPLE)
     add_definitions(
@@ -20,27 +35,20 @@ if (APPLE)
 endif()
 
 add_definitions("-DCL_TARGET_OPENCL_VERSION=220")
-add_subdirectory("OpenCL-ICD-Loader")
+
+if (NOT APPLE)
+    add_subdirectory("OpenCL-ICD-Loader")
+endif()
 
 project(cl-tool CXX)
 
 # include(UseOpenCL.cmake)
 
-if (NOT WIN32)
-    include(UseGoogleTest.cmake)
-endif()
+# if (NOT WIN32)
+#     include(UseGoogleTest.cmake)
+# endif()
 
 find_package(Threads)
-
-set(OPENCL_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/OpenCL-Headers")
-set(OPENCL2_HPP_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/OpenCL-CLHPP/include")
-if (APPLE)
-    # set(OPENCL_LIBRARIES /System/Library/Frameworks/OpenCL.framework/Versions/Current/OpenCL)
-    # or
-    set(OPENCL_LIBRARIES "-framework OpenCL")
-else()
-    set(OPENCL_LIBRARIES OpenCL)
-endif()
 
 set(CL_TOOL_SOURCES
 	parse-cmd-line.hh
