@@ -29,7 +29,7 @@ using cl::Device;
 using cl::NDRange;
 
 static const auto
-    SIMULATION_STEP_PROBE_TIME = milliseconds(100),
+    SIMULATION_STEP_PROBE_TIME = milliseconds(75),
     SIMULATION_PROBE_TIME_MAX  = milliseconds(450);	    // Allow for at least 3 full time steps during probe
 
 static const unsigned MULTI_PASS_COUNT = 3;
