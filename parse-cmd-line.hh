@@ -27,6 +27,8 @@ struct CmdLineArgs
     bool show_defaults = false;
     bool opencl_order = false;
     bool exact_match = false;
+    bool has_simulation_count = false;
+    unsigned long simulation_count = 300;
     void parse(char const * const argv[]);
 
 protected:

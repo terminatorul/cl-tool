@@ -60,7 +60,8 @@ bool enumerate_cl_platforms
 	cl::vector<Platform>			   &nativePlatforms,
 	UserDeviceSelection	    		   &userDeviceSelection,
 	vector<pair<unsigned, vector<unsigned>>>   &platformSelection,
-	bool					    probe
+	bool					    probe,
+	unsigned long				    simulation_count
     )
 {
     bool result = true;
@@ -78,7 +79,7 @@ bool enumerate_cl_platforms
 
 	for (unsigned device: platform.second)
 	    if (probe)
-		result = result && probe_cl_device(platformDevices[device]);
+		result = result && probe_cl_device(platformDevices[device], simulation_count);
 	    else
 		show_cl_device(platformDevices[device]);
 
@@ -137,12 +138,12 @@ try
 
     if (result)
     {
-	result = result && enumerate_cl_platforms(platformList, userDeviceSelection, listDevices, false);
+	result = result && enumerate_cl_platforms(platformList, userDeviceSelection, listDevices, false, args.simulation_count);
 
 	if (!listDevices.empty() && !probeDevices.empty())
 	    cout << endl;
 
-	result = result && enumerate_cl_platforms(platformList, userDeviceSelection, probeDevices, true);
+	result = result && enumerate_cl_platforms(platformList, userDeviceSelection, probeDevices, true, args.simulation_count);
     }
 
     return result ? EXIT_SUCCESS : EXIT_FAILURE ;

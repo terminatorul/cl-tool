@@ -13,13 +13,14 @@ using std::endl;
 using std::vector;
 using std::pair;
 using std::string;
+using std::stoul;
 
 void SyntaxError::showSyntax(char const *cmd_name)
 {
     cerr << "Syntax:" << endl;
     cerr << "\t" << cmd_name << " [ --include-defaults ]" << endl;
-    cerr << "\t" << cmd_name << " [ [--list] [--probe] --platforms [--devices] ] " << endl;
-    cerr << "\t" << cmd_name << " [ [--list] [--probe] --platform \"Name\" [--devices | --device \"Name\" ]... ]... " << endl;
+    cerr << "\t" << cmd_name << " [ [--list] [--probe [--max-count 300]] --platforms [--devices] ] " << endl;
+    cerr << "\t" << cmd_name << " [ [--list] [--probe [--max-count 300]] --platform \"Name\" [--devices | --device \"Name\" ]... ]... " << endl;
     cerr << endl;
     cerr << cmd_name << " will by default attempt to probe the default OpenCL device(s) using a trivial matrix" << endl;
     cerr << "multiplication and report the number of floating-point operations per second in GFLOPS." << endl;
@@ -30,6 +31,11 @@ void SyntaxError::showSyntax(char const *cmd_name)
     cerr << "\t     and show the resulting speed (usually in GFLOPS). Without other options, this will be the default" << endl;
     cerr << "\t     action. With no device given, --probe implies --devices, meaning all platform devices will be" << endl;
     cerr << "\t     probed." << endl;
+    cerr << endl;
+    cerr << "\t[--max-count 300]" << endl;
+    cerr << "\t     Max number of simmulations to run for one pass when probing devices. The number of work items" << endl;
+    cerr << "\t     increases for each simulation during a pass in a linear fashion, from 0 to a maximum that is" << endl;
+    cerr << "\t     determined so that one simulation fits in around 450ms." << endl;
     cerr << endl;
     cerr << "\t[--list][ [--probe] --platforms [--devices]" << endl;
     cerr << "\t     With --list or --show (default), show details on the available OpenCL platforms." << endl;
@@ -138,6 +144,14 @@ char const * const *CmdLineArgs::parseGlobalOptions(char const * const argv[])
     if (argv[0] && !strncmp("--exact-match", argv[0], sizeof "--exact-match"))
     {
 	exact_match = true;
+	argv++;
+    }
+
+    if (argv[0] && !strncmp("--max-count", argv[0], sizeof "--max-count"))
+    {
+	argv++;
+	simulation_count = stoul(argv[0]);
+	has_simulation_count = true;
 	argv++;
     }
 
@@ -327,4 +341,7 @@ void CmdLineArgs::parse(char const * const argv[])
     }
 
     parseCompleted(argv);
+
+    if (has_simulation_count && probeSet.empty())
+	throw SyntaxError("Max simulation count specified without devices to probe.");
 }
