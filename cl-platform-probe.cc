@@ -130,9 +130,10 @@ extern bool probe_cl_device(Device &device, unsigned long simulation_count)
 	    cout << " ]" << endl;
 	    cout << "figure" << endl;
 	    cout << "plot(counts, times_" << it <<", '.')" << endl;
-	    cout << "title(\"" << device.getInfo<CL_DEVICE_VENDOR>() << ' ' << device.getInfo<CL_DEVICE_PLATFORM>() << "\\n"
-		 << device.getInfo<CL_DEVICE_NAME>() << "\\n"
-		 << device.getInfo<CL_DEVICE_VERSION>() << "\")" << endl;
+	    cout << "title(\"" << trim_name(device.getInfo<CL_DEVICE_VENDOR>()) << " - "
+		 << trim_name(Platform(device.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>()) << "\\n"
+		 << trim_name(device.getInfo<CL_DEVICE_NAME>()) << "\\n"
+		 << trim_name(device.getInfo<CL_DEVICE_VERSION>()) << "\")" << endl;
 	    cout << "xlabel('Work group size (work items count)')" << endl;
 	    cout << "ylabel('Simulation time (ms)')" << endl;
 	    cout << "grid on" << endl;
