@@ -32,14 +32,14 @@ static const auto
     SIMULATION_STEP_PROBE_TIME = milliseconds(75),
     SIMULATION_PROBE_TIME_MAX  = milliseconds(450);	    // Allow for at least 3 full time steps during probe
 
-static const unsigned MULTI_PASS_COUNT = 3;
+static constexpr unsigned MULTI_PASS_COUNT = 3u;
 
 extern void probe_cl_platform(Platform &platform)
 {
     cout << trim_name(platform.getInfo<CL_PLATFORM_NAME>()) << endl;
 }
 
-size_t probe_global_simulation_size(DoublePendulumSimulation &sim, size_t base_size, size_t size_multiple)
+static size_t probe_global_simulation_size(DoublePendulumSimulation &sim, size_t base_size, size_t size_multiple)
 {
     unsigned n = 1u;
 
@@ -61,9 +61,44 @@ size_t probe_global_simulation_size(DoublePendulumSimulation &sim, size_t base_s
     return base_size;
 }
 
-extern bool probe_cl_device(Device &device, unsigned long simulation_count)
+static void show_simulation_times(Device &device, size_t simulation_size, size_t size_multiple, size_t step_size, unsigned long const times[][MULTI_PASS_COUNT])
+{
+#if !defined(DISABLE_LOGGING)
+
+    cout << '\n';
+
+    cout << "counts = [ 0";
+    for (size_t n = 1u; n <= simulation_size; n++)
+	cout << ", " << n * step_size * size_multiple;
+    cout << " ]" << endl;
+
+    for (unsigned it = 0; it < size(times[0]); it++)
+    {
+	cout << "times_" << it << " = [ 0";
+	for (unsigned n = 1u; n <= simulation_size; n++)
+	    cout << ", " << times[n - 1u][it];
+	cout << " ]" << endl;
+	cout << "figure" << endl;
+	cout << "plot(counts, times_" << it <<", '.')" << endl;
+	cout << "title(\"" << trim_name(device.getInfo<CL_DEVICE_VENDOR>()) << " - "
+	     << trim_name(Platform(device.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>()) << "\\n"
+	     << trim_name(device.getInfo<CL_DEVICE_NAME>()) << "\\n"
+	     << trim_name(device.getInfo<CL_DEVICE_VERSION>()) << "\")" << endl;
+	cout << "xlabel('Work group size (work items count)')" << endl;
+	cout << "ylabel('Simulation time (ms)')" << endl;
+	cout << "grid on" << endl;
+	cout << "grid minor on" << endl;
+	cout << endl;
+    }
+
+#endif
+}
+
+extern bool probe_cl_device(Device &device, unsigned long simulation_count, unsigned delay_ms)
 {
     cout << "\tDevice:                " << trim_name(device.getInfo<CL_DEVICE_NAME>()) << endl;
+
+    cl_bool has_linker = false;
 
     if
 	(
@@ -71,13 +106,7 @@ extern bool probe_cl_device(Device &device, unsigned long simulation_count)
 		&&
 	    device.getInfo<CL_DEVICE_COMPILER_AVAILABLE>()
 		&&
-	    [&device] () -> bool
-	    {
-		cl_bool has_linker;
-		device.getInfo(CL_DEVICE_LINKER_AVAILABLE, &has_linker);
-
-		return has_linker;
-	    }()
+	    (device.getInfo(CL_DEVICE_LINKER_AVAILABLE, &has_linker), has_linker)
 	)
     {
 	DoublePendulumSimulation &sim = DoublePendulumSimulation::get(device);
@@ -109,37 +138,13 @@ extern bool probe_cl_device(Device &device, unsigned long simulation_count)
 	    {
 		cout << "\rMultiple: " << it + 1u << '/' << n * step_size << flush;
 		times[n - 1][it] = static_cast<unsigned long>(sim.runSimulation(NDRange(n * step_size * size_multiple), NDRange(size_multiple)));
-		std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+		if (delay_ms)
+		    std::this_thread::sleep_for(milliseconds(delay_ms));
 	    }
 	}
 
-	cout << '\n';
-
-	// cout << endl;
-
-	cout << "counts = [ 0";
-	for (size_t n = 1u; n <= simulation_size; n++)
-	    cout << ", " << n * step_size * size_multiple;
-	cout << " ]" << endl;
-
-	for (unsigned it = 0; it < size(times[0]); it++)
-	{
-	    cout << "times_" << it << " = [ 0";
-	    for (unsigned n = 1u; n <= simulation_size; n++)
-		cout << ", " << times[n - 1u][it];
-	    cout << " ]" << endl;
-	    cout << "figure" << endl;
-	    cout << "plot(counts, times_" << it <<", '.')" << endl;
-	    cout << "title(\"" << trim_name(device.getInfo<CL_DEVICE_VENDOR>()) << " - "
-		 << trim_name(Platform(device.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>()) << "\\n"
-		 << trim_name(device.getInfo<CL_DEVICE_NAME>()) << "\\n"
-		 << trim_name(device.getInfo<CL_DEVICE_VERSION>()) << "\")" << endl;
-	    cout << "xlabel('Work group size (work items count)')" << endl;
-	    cout << "ylabel('Simulation time (ms)')" << endl;
-	    cout << "grid on" << endl;
-	    cout << "grid minor on" << endl;
-	    cout << endl;
-	}
+	show_simulation_times(device, simulation_size, size_multiple, step_size, times.get());
     }
     else
     {

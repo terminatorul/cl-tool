@@ -7,7 +7,7 @@
 #include <CL/cl2.hpp>
 #endif
 
-extern bool probe_cl_device(cl::Device &device, unsigned long simulation_count);
+extern bool probe_cl_device(cl::Device &device, unsigned long simulation_count, unsigned delay_ms);
 extern void probe_cl_platform(cl::Platform &platform);
 
 #endif // !defined(CL_PLATFORM_PROBE_HH)

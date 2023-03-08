@@ -28,7 +28,8 @@ struct CmdLineArgs
     bool opencl_order = false;
     bool exact_match = false;
     bool has_simulation_count = false;
-    unsigned long simulation_count = 300;
+    unsigned long simulation_count = 500;
+    unsigned int  probe_delay = 0u;
     void parse(char const * const argv[]);
 
 protected:

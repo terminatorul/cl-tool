@@ -16,10 +16,10 @@
 #include <sstream>
 
 #if defined(_WINDOWS)
-#include <Windows.h>
-#if !defined(ENABLE_VIRTUAL_TERMINAL_PROCESSING)
-# define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
-#endif
+# include <Windows.h>
+# if !defined(ENABLE_VIRTUAL_TERMINAL_PROCESSING)
+#  define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+# endif
 #endif
 
 #if defined(__APPLE__) || defined(__MACOSX__)
@@ -55,13 +55,14 @@ using cl::Context;
 using cl::Platform;
 using cl::Device;
 
-bool enumerate_cl_platforms
+static bool enumerate_cl_platforms
     (
 	cl::vector<Platform>			   &nativePlatforms,
 	UserDeviceSelection	    		   &userDeviceSelection,
 	vector<pair<unsigned, vector<unsigned>>>   &platformSelection,
 	bool					    probe,
-	unsigned long				    simulation_count
+	unsigned long				    simulation_count,
+	unsigned int				    delay_ms
     )
 {
     bool result = true;
@@ -79,7 +80,7 @@ bool enumerate_cl_platforms
 
 	for (unsigned device: platform.second)
 	    if (probe)
-		result = result && probe_cl_device(platformDevices[device], simulation_count);
+		result = result && probe_cl_device(platformDevices[device], simulation_count, delay_ms);
 	    else
 		show_cl_device(platformDevices[device]);
 
@@ -138,12 +139,12 @@ try
 
     if (result)
     {
-	result = result && enumerate_cl_platforms(platformList, userDeviceSelection, listDevices, false, args.simulation_count);
+	result = result && enumerate_cl_platforms(platformList, userDeviceSelection, listDevices, false, args.simulation_count, args.probe_delay);
 
 	if (!listDevices.empty() && !probeDevices.empty())
 	    cout << endl;
 
-	result = result && enumerate_cl_platforms(platformList, userDeviceSelection, probeDevices, true, args.simulation_count);
+	result = result && enumerate_cl_platforms(platformList, userDeviceSelection, probeDevices, true, args.simulation_count, args.probe_delay);
     }
 
     return result ? EXIT_SUCCESS : EXIT_FAILURE ;

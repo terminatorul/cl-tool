@@ -48,19 +48,19 @@ public:
     void probeIterationCount(std::chrono::milliseconds targetDurationMs);
     unsigned long runSimulation(cl::NDRange const &globalSize, cl::NDRange const &localSize);
 
-    std::size_t groupSizeMultiple();
-    std::size_t workGroupSize();
+    std::size_t groupSizeMultiple() const;
+    std::size_t workGroupSize() const;
     cl_ulong iterationCount() const;
 
     static DoublePendulumSimulation &get(cl::Device &device);
 };
 
-inline std::size_t DoublePendulumSimulation::groupSizeMultiple()
+inline std::size_t DoublePendulumSimulation::groupSizeMultiple() const
 {
     return doublePendulumKernel.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(device);
 }
 
-inline std::size_t DoublePendulumSimulation::workGroupSize()
+inline std::size_t DoublePendulumSimulation::workGroupSize() const
 {
     return doublePendulumKernel.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(device);
 }
