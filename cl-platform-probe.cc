@@ -32,8 +32,6 @@ static const auto
     SIMULATION_STEP_PROBE_TIME = milliseconds(75),
     SIMULATION_PROBE_TIME_MAX  = milliseconds(450);	    // Allow for at least 3 full time steps during probe
 
-static constexpr unsigned MULTI_PASS_COUNT = 3u;
-
 extern void probe_cl_platform(Platform &platform)
 {
     cout << trim_name(platform.getInfo<CL_PLATFORM_NAME>()) << endl;
@@ -61,7 +59,7 @@ static size_t probe_global_simulation_size(DoublePendulumSimulation &sim, size_t
     return base_size;
 }
 
-static void show_simulation_times(Device &device, size_t simulation_size, size_t size_multiple, size_t step_size, unsigned long const times[][MULTI_PASS_COUNT])
+static void show_simulation_times(Device &device, size_t simulation_size, size_t size_multiple, size_t step_size, unsigned long const times[], unsigned int pass_count)
 {
 #if !defined(DISABLE_LOGGING)
 
@@ -72,14 +70,14 @@ static void show_simulation_times(Device &device, size_t simulation_size, size_t
 	cout << ", " << n * step_size * size_multiple;
     cout << " ]" << endl;
 
-    for (unsigned it = 0; it < size(times[0]); it++)
+    for (unsigned pass = 0; pass < pass_count; pass++)
     {
-	cout << "times_" << it << " = [ 0";
+	cout << "times_" << pass << " = [ 0";
 	for (unsigned n = 1u; n <= simulation_size; n++)
-	    cout << ", " << times[n - 1u][it];
+	    cout << ", " << times[(n - 1u) * pass_count + pass];
 	cout << " ]" << endl;
 	cout << "figure" << endl;
-	cout << "plot(counts, times_" << it <<", '.')" << endl;
+	cout << "plot(counts, times_" << pass <<", '.')" << endl;
 	cout << "title(\"" << trim_name(device.getInfo<CL_DEVICE_VENDOR>()) << " - "
 	     << trim_name(Platform(device.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>()) << "\\n"
 	     << trim_name(device.getInfo<CL_DEVICE_NAME>()) << "\\n"
@@ -94,7 +92,7 @@ static void show_simulation_times(Device &device, size_t simulation_size, size_t
 #endif
 }
 
-extern bool probe_cl_device(Device &device, unsigned long simulation_count, unsigned delay_ms)
+extern bool probe_cl_device(Device &device, unsigned int pass_count, unsigned long simulation_count, unsigned delay_ms)
 {
     cout << "\tDevice:                " << trim_name(device.getInfo<CL_DEVICE_NAME>()) << endl;
 
@@ -126,25 +124,25 @@ extern bool probe_cl_device(Device &device, unsigned long simulation_count, unsi
 	clog << "\tGroup size multiple:   " << size_multiple << " work items" << endl;
 	clog << "\tMax workgroup count:   " << step_size * simulation_size << " workgroups" << endl;
 	clog << "\tGranularity:           " << step_size << " workgroups" << endl;
-	clog << "\tReruns:                " << MULTI_PASS_COUNT << " runs" << endl;
+	clog << "\tReruns:                " << pass_count << " runs" << endl;
 
-	unique_ptr<unsigned long[][MULTI_PASS_COUNT]> times(new unsigned long[simulation_size][MULTI_PASS_COUNT]);
+	unique_ptr<unsigned long[]> times(new unsigned long[simulation_size * pass_count]);
 
-	for (unsigned it = 0; it < size(times[0]); it++)
+	for (unsigned pass = 0u; pass < pass_count; pass++)
 	{
-	    cout << "\rMultiple: " << it << "/            " << flush;
+	    cout << "\rMultiple: " << pass << "/            " << flush;
 
 	    for (size_t n = 1u; n <= simulation_size; n++)
 	    {
-		cout << "\rMultiple: " << it + 1u << '/' << n * step_size << flush;
-		times[n - 1][it] = static_cast<unsigned long>(sim.runSimulation(NDRange(n * step_size * size_multiple), NDRange(size_multiple)));
+		cout << "\rMultiple: " << pass + 1u << '/' << n * step_size << flush;
+		times[(n - 1) * pass_count + pass] = static_cast<unsigned long>(sim.runSimulation(NDRange(n * step_size * size_multiple), NDRange(size_multiple)));
 
 		if (delay_ms)
 		    std::this_thread::sleep_for(milliseconds(delay_ms));
 	    }
 	}
 
-	show_simulation_times(device, simulation_size, size_multiple, step_size, times.get());
+	show_simulation_times(device, simulation_size, size_multiple, step_size, times.get(), pass_count);
     }
     else
     {

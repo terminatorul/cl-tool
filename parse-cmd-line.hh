@@ -30,6 +30,7 @@ struct CmdLineArgs
     bool has_simulation_count = false;
     unsigned long simulation_count = 500;
     unsigned int  probe_delay = 0u;
+    unsigned int  pass_count = 3u;
     void parse(char const * const argv[]);
 
 protected:

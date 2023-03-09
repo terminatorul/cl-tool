@@ -19,8 +19,8 @@ void SyntaxError::showSyntax(char const *cmd_name)
 {
     cerr << "Syntax:" << endl;
     cerr << "\t" << cmd_name << " [ --include-defaults ]" << endl;
-    cerr << "\t" << cmd_name << " [ [--list] [--probe [--max-count 500 [--probe-delay 0]]] --platforms [--devices] ] " << endl;
-    cerr << "\t" << cmd_name << " [ [--list] [--probe [--max-count 500 [--probe-delay 0]]] --platform \"Name\" [--devices | --device \"Name\" ]... ]... " << endl;
+    cerr << "\t" << cmd_name << " [ [--list] [--probe [--max-count 500] [--probe-delay 0] [--pass-count 3]] --platforms [--devices] ] " << endl;
+    cerr << "\t" << cmd_name << " [ [--list] [--probe [--max-count 500] [--probe-delay 0] [--pass-count 3]] --platform \"Name\" [--devices | --device \"Name\" ]... ]... " << endl;
     cerr << endl;
     cerr << cmd_name << " will by default attempt to probe the default OpenCL device(s) using a trivial matrix" << endl;
     cerr << "multiplication and report the number of floating-point operations per second in GFLOPS." << endl;
@@ -33,15 +33,20 @@ void SyntaxError::showSyntax(char const *cmd_name)
     cerr << "\t     probed." << endl;
     cerr << endl;
     cerr << "\t[--max-count 500]" << endl;
-    cerr << "\t     Max number of simmulations to run for one pass when probing devices. The number of work items" << endl;
+    cerr << "\t     Max number of simulations to run for one pass when probing devices. The number of work items" << endl;
     cerr << "\t     increases for each simulation during a pass in a linear fashion, from 0 to a maximum that is" << endl;
-    cerr << "\t     determined so that one simulation fits in around 450ms." << endl;
+    cerr << "\t     determined so that one simulation fits in around 450ms. To ensure consecutive simulations are" << endl;
+    cerr << "\t     spaced out evenly with regards to the number of work items given as input, the total number of" << endl;
+    cerr << "\t     simulations in one pass will usually be less then this maximum." << endl;
     cerr << endl;
     cerr << "\t[--probe-delay 0]" << endl;
     cerr << "\t     Delay in milliseconds after each simulation in a pass. Can help with some iGPUs (old iGPUs on macOS)" << endl;
     cerr << "\t     that are affected by power consumption of the main CPU, so the resulting chart has unexpected" << endl;
     cerr << "\t     variations in performance. Multiplay the --max-count and the --probe-delay to get the total idle" << endl;
     cerr << "\t     time in one pass during device probe. Default 0." << endl;
+    cerr << "\t[--pass--count 3]" << endl;
+    cerr << "\t     Number of passes when probing devices. To be able to identify random variations in excecution time" << endl;
+    cerr << "\t     chart, cl-tool probes the device multiple times." << endl;
     cerr << endl;
     cerr << "\t[--list][ [--probe] --platforms [--devices]" << endl;
     cerr << "\t     With --list or --show (default), show details on the available OpenCL platforms." << endl;
@@ -165,6 +170,13 @@ char const * const *CmdLineArgs::parseGlobalOptions(char const * const argv[])
     {
 	argv++;
 	probe_delay = stoul(argv[0]);
+	argv++;
+    }
+
+    if (argv[0] && !strncmp("--pass-count", argv[0], sizeof "--pass-count"))
+    {
+	argv++;
+	pass_count = stoul(argv[0]);
 	argv++;
     }
 

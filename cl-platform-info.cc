@@ -662,12 +662,12 @@ extern void show_cl_device(Device &device)
     cout << "\tDevice:                 " << trim_name(device.getInfo<CL_DEVICE_NAME>()) << endl;
     cout << "\tPlatform:               " << trim_name(Platform(device.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>()) << endl;
     cout << "\tVendor:                 [0x" << std::setw(4) << std::setfill('0') << std::setiosflags(cout.right | cout.uppercase) << std::setbase(16) << device.getInfo<CL_DEVICE_VENDOR_ID>() /* << std::resetiosflags() */ << std::setbase(10) << "] "
-					<< device.getInfo<CL_DEVICE_VENDOR>() << endl;
+					<< trim_name(device.getInfo<CL_DEVICE_VENDOR>()) << endl;
     cout << "\tProfile:                " << device.getInfo<CL_DEVICE_PROFILE>() << endl;
     cout << "\tType                    " << list_cl_device_type(device.getInfo<CL_DEVICE_TYPE>()) << endl;
-    cout << "\tDriver version:         " << device.getInfo<CL_DRIVER_VERSION>() << endl;
-    cout << "\tOpencCL version:        " << device.getInfo<CL_DEVICE_VERSION>() << endl;
-    cout << "\tOpenCL C version:       " << device.getInfo<CL_DEVICE_OPENCL_C_VERSION>() << endl;
+    cout << "\tDriver version:         " << trim_name(device.getInfo<CL_DRIVER_VERSION>()) << endl;
+    cout << "\tOpencCL version:        " << trim_name(device.getInfo<CL_DEVICE_VERSION>()) << endl;
+    cout << "\tOpenCL C version:       " << trim_name(device.getInfo<CL_DEVICE_OPENCL_C_VERSION>()) << endl;
     // cout << "\tSPIR version:           " << device.getInfo<CL_DEVICE_SPIR_VERSIONS>() << endl;
     cout << "\tDevice available:       " << (device.getInfo<CL_DEVICE_AVAILABLE>() ? "[x]" : "[ ]") << endl;
 
@@ -809,7 +809,12 @@ extern void show_cl_device(Device &device)
 
     local_string = device.getInfo<CL_DEVICE_EXTENSIONS>();
     separator = regex("[[:space:]]+");
-    cout << "\tExtensions:             " << show_extensions_list(list<string>(sregex_token_iterator(local_string.cbegin(), local_string.cend(), separator, -1), sregex_token_iterator()), "\t\t\t\t") << endl;
+
+    if (trim_name(local_string).empty())
+	cout << "\tExtensions:" << endl;
+    else
+	cout << "\tExtensions:             " << show_extensions_list(list<string>(sregex_token_iterator(local_string.cbegin(), local_string.cend(), separator, -1), sregex_token_iterator()), "\t\t\t\t") << endl;
+
     cout << endl;
 }
 
@@ -820,7 +825,7 @@ extern void show_cl_platform(Platform &platform, cl::vector<Device> &devices)
     cout << "Platform:      \t" << trim_name(platform.getInfo<CL_PLATFORM_NAME>()) << endl;
     cout << "Vendor:        \t" << trim_name(platform.getInfo<CL_PLATFORM_VENDOR>()) << endl;
     cout << "Profile:       \t" << platform.getInfo<CL_PLATFORM_PROFILE>() << endl;
-    cout << "Version:       \t" << platform.getInfo<CL_PLATFORM_VERSION>() << endl;
+    cout << "Version:       \t" << trim_name(platform.getInfo<CL_PLATFORM_VERSION>()) << endl;
     cout << "ICD suffix:    \t" << [&platform]() -> string
     {
             try
@@ -851,7 +856,10 @@ extern void show_cl_platform(Platform &platform, cl::vector<Device> &devices)
 	    ext_list.push_back(it->str());
     }
 
-    cout << "Extensions:    \t" << show_extensions_list(ext_list, "\t\t") << endl;
+    if (ext_list.empty())
+	cout << "Extensions:" << endl;
+    else
+	cout << "Extensions:    \t" << show_extensions_list(ext_list, "\t\t") << endl;
 
     cout << "Devices:       \t";
     bool devices_output = false;

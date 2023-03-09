@@ -61,6 +61,7 @@ static bool enumerate_cl_platforms
 	UserDeviceSelection	    		   &userDeviceSelection,
 	vector<pair<unsigned, vector<unsigned>>>   &platformSelection,
 	bool					    probe,
+	unsigned int				    pass_count,
 	unsigned long				    simulation_count,
 	unsigned int				    delay_ms
     )
@@ -80,7 +81,7 @@ static bool enumerate_cl_platforms
 
 	for (unsigned device: platform.second)
 	    if (probe)
-		result = result && probe_cl_device(platformDevices[device], simulation_count, delay_ms);
+		result = result && probe_cl_device(platformDevices[device], pass_count, simulation_count, delay_ms);
 	    else
 		show_cl_device(platformDevices[device]);
 
@@ -139,12 +140,12 @@ try
 
     if (result)
     {
-	result = result && enumerate_cl_platforms(platformList, userDeviceSelection, listDevices, false, args.simulation_count, args.probe_delay);
+	result = result && enumerate_cl_platforms(platformList, userDeviceSelection, listDevices, false, args.pass_count, args.simulation_count, args.probe_delay);
 
 	if (!listDevices.empty() && !probeDevices.empty())
 	    cout << endl;
 
-	result = result && enumerate_cl_platforms(platformList, userDeviceSelection, probeDevices, true, args.simulation_count, args.probe_delay);
+	result = result && enumerate_cl_platforms(platformList, userDeviceSelection, probeDevices, true, args.pass_count, args.simulation_count, args.probe_delay);
     }
 
     return result ? EXIT_SUCCESS : EXIT_FAILURE ;
