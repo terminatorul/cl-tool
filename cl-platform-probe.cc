@@ -123,7 +123,7 @@ extern bool probe_cl_device(Device &device, unsigned int pass_count, unsigned lo
 
 	clog << "\tGroup size multiple:   " << size_multiple << " work items" << endl;
 	clog << "\tMax workgroup count:   " << step_size * simulation_size << " workgroups" << endl;
-	clog << "\tGranularity:           " << step_size << " workgroups" << endl;
+	clog << "\tUsing granularity:     " << step_size << " workgroups" << endl;
 	clog << "\tReruns:                " << pass_count << " runs" << endl;
 
 	unique_ptr<unsigned long[]> times(new unsigned long[simulation_size * pass_count]);
