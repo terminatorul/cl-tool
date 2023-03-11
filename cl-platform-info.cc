@@ -757,7 +757,12 @@ extern void show_cl_device(Device &device)
 #if (CL_HPP_TARGET_OPENCL_VERSION >= 120)
     string local_string = device.getInfo<CL_DEVICE_BUILT_IN_KERNELS>();
     regex separator(";");
-    cout << "\tBuilt-in kernels:       " << show_extensions_list(list<string>(sregex_token_iterator(local_string.cbegin(), local_string.cend(), separator, -1), sregex_token_iterator()), "\t\t\t\t") << endl;
+    cout << "\tBuilt-in kernels:";
+
+    if (!local_string.empty())
+	cout << "       " << show_extensions_list(list<string>(sregex_token_iterator(local_string.cbegin(), local_string.cend(), separator, -1), sregex_token_iterator()), "\t\t\t\t");
+
+    cout << endl;
 #endif
     cout << setfill(' ');
     cout << "\tNative vector size:     " << "(char: " << setw(2) << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_CHAR>() << ", short: " << setw(2) << device.getInfo<CL_DEVICE_NATIVE_VECTOR_WIDTH_SHORT>()
@@ -810,11 +815,12 @@ extern void show_cl_device(Device &device)
     local_string = device.getInfo<CL_DEVICE_EXTENSIONS>();
     separator = regex("[[:space:]]+");
 
-    if (trim_name(local_string).empty())
-	cout << "\tExtensions:" << endl;
-    else
-	cout << "\tExtensions:             " << show_extensions_list(list<string>(sregex_token_iterator(local_string.cbegin(), local_string.cend(), separator, -1), sregex_token_iterator()), "\t\t\t\t") << endl;
+    cout << "\tExtensions:";
 
+    if (!trim_name(local_string).empty())
+	cout << "             " << show_extensions_list(list<string>(sregex_token_iterator(local_string.cbegin(), local_string.cend(), separator, -1), sregex_token_iterator()), "\t\t\t\t");
+
+    cout << endl;
     cout << endl;
 }
 
@@ -856,10 +862,12 @@ extern void show_cl_platform(Platform &platform, cl::vector<Device> &devices)
 	    ext_list.push_back(it->str());
     }
 
-    if (ext_list.empty())
-	cout << "Extensions:" << endl;
-    else
-	cout << "Extensions:    \t" << show_extensions_list(ext_list, "\t\t") << endl;
+    cout << "Extensions:";
+
+    if (!ext_list.empty())
+	cout << "    \t" << show_extensions_list(ext_list, "\t\t");
+
+    cout << endl;
 
     cout << "Devices:       \t";
     bool devices_output = false;
