@@ -592,9 +592,9 @@ extern bool has_extension(string const &ext_list, char const *ext, size_t ext_le
     return it != ext_list.cend();
 }
 
-set<string> const default_CL12_Extensions 
+set<string> const default_CL12_Extensions
 {
-    "cl_khr_global_int32_base_atomics", 
+    "cl_khr_global_int32_base_atomics",
     "cl_khr_global_int32_extended_atomics",
     "cl_khr_local_int32_base_atomics",
     "cl_khr_local_int32_extended_atomics",
@@ -647,11 +647,16 @@ extern string trim_name(string name)
 }
 
 static void show_cl_device_kernel(Device &device)
+try
 {
     DoublePendulumSimulation &sim = DoublePendulumSimulation::get(device);
 
     cout << "\tGroup size multiple:    " << sim.groupSizeMultiple() << endl;
     cout << "\tKernel work group size: " << dimension_size_str(sim.workGroupSize()) << endl;
+}
+catch (cl::Error const &err)
+{
+    cerr << "OpenCL error " << error_string(err.err()) << " in call to function " << err.what() << "()" << endl;
 }
 
 extern void show_cl_device(Device &device)
